@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // <-- FIX: IMPORTED Link
+import { useNavigate, Link } from 'react-router-dom'; 
 import { useCart } from '../../context/CartContext';
 import { loadScript, createOrderApi, verifyPaymentApi } from '../../api/orderApi'; 
 import { Container, Row, Col, Form, Button, Card, ListGroup, Image, Spinner, Alert } from 'react-bootstrap';
@@ -56,11 +56,27 @@ const Checkout = () => {
     }
 
     try {
+      // --- MAP CART ITEMS TO BACKEND SCHEMA ---
+      // Backend expects: { product: ID, image: String, isCustom: Bool, ... }
+      // Cart has: { _id: ID, images: [String], isCustom: Bool, ... }
+      const formattedOrderItems = cart.map(item => ({
+        name: item.name,
+        qty: item.qty,
+        size: item.size,
+        // Use the custom URL or the first product image
+        image: item.isCustom ? (item.customPrintUrl || item.images[0]) : item.images[0], 
+        price: item.price,
+        product: item._id, // Map _id to product
+        isCustom: item.isCustom || false,
+        customPrintUrl: item.customPrintUrl || null
+      }));
+
       const orderData = {
         shippingInfo: formData,
-        orderItems: cart,
+        orderItems: formattedOrderItems,
         totalPrice: totalPrice,
       };
+
       const data = await createOrderApi(orderData);
       
       const { amount, razorpayOrderId, razorpayKeyId, orderId } = data;
@@ -132,7 +148,6 @@ const Checkout = () => {
       </h1>
 
       {totalItems === 0 ? (
-        // <-- FIX: <Link> is now defined
         <Alert variant="warning" className="text-center fs-5">
           Your cart is empty. <Alert.Link as={Link} to="/shop">Go shopping</Alert.Link>. 
         </Alert>
@@ -147,129 +162,66 @@ const Checkout = () => {
                 </Card.Title>
                 
                 <Form noValidate validated={validated} onSubmit={handlePayment}>
+                  {/* ... Form fields remain same as original ... */}
                   <Row className="g-3">
                     <Col sm={6}>
                       <Form.Group controlId="name">
                         <Form.Label>Full Name</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="name"
-                          value={formData.name}
-                          onChange={handleChange}
-                          required
-                        />
-                        <Form.Control.Feedback type="invalid">
-                          Please enter your name.
-                        </Form.Control.Feedback>
+                        <Form.Control type="text" name="name" value={formData.name} onChange={handleChange} required />
+                        <Form.Control.Feedback type="invalid">Please enter your name.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={6}>
                       <Form.Group controlId="email">
                         <Form.Label>Email Address</Form.Label>
-                        <Form.Control
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleChange}
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter a valid email.
-                        </Form.Control.Feedback>
+                        <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} required />
+                        <Form.Control.Feedback type="invalid">Please enter a valid email.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={12}>
                       <Form.Group controlId="phone">
                         <Form.Label>Phone Number</Form.Label>
-                        <Form.Control
-                          type="tel"
-                          name="phone"
-                          value={formData.phone}
-                          onChange={handleChange}
-                          pattern="^[6-9]\d{9}$"
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter a valid 10-digit phone number.
-                        </Form.Control.Feedback>
+                        <Form.Control type="tel" name="phone" value={formData.phone} onChange={handleChange} pattern="^[6-9]\d{9}$" required />
+                        <Form.Control.Feedback type="invalid">Please enter a valid 10-digit phone number.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={12}>
                       <Form.Group controlId="address">
                         <Form.Label>Street Address</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="address"
-                          value={formData.address}
-                          onChange={handleChange}
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter your address.
-                        </Form.Control.Feedback>
+                        <Form.Control type="text" name="address" value={formData.address} onChange={handleChange} required />
+                        <Form.Control.Feedback type="invalid">Please enter your address.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={5}>
                       <Form.Group controlId="city">
                         <Form.Label>City</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="city"
-                          value={formData.city}
-                          onChange={handleChange}
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter your city.
-                        </Form.Control.Feedback>
+                        <Form.Control type="text" name="city" value={formData.city} onChange={handleChange} required />
+                        <Form.Control.Feedback type="invalid">Please enter your city.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                     
                     <Col sm={4}>
                       <Form.Group controlId="state">
                         <Form.Label>State</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="state"
-                          value={formData.state}
-                          onChange={handleChange}
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter your state.
-                        </Form.Control.Feedback>
+                        <Form.Control type="text" name="state" value={formData.state} onChange={handleChange} required />
+                        <Form.Control.Feedback type="invalid">Please enter your state.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={3}>
                       <Form.Group controlId="postalCode">
                         <Form.Label>PIN Code</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="postalCode"
-                          value={formData.postalCode}
-                          onChange={handleChange}
-                          pattern="^\d{6}$"
-                          required
-                        />
-                         <Form.Control.Feedback type="invalid">
-                          Please enter a valid 6-digit PIN.
-                        </Form.Control.Feedback>
+                        <Form.Control type="text" name="postalCode" value={formData.postalCode} onChange={handleChange} pattern="^\d{6}$" required />
+                        <Form.Control.Feedback type="invalid">Please enter a valid 6-digit PIN.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                   </Row>
 
-                  <Button
-                    type="submit"
-                    variant="dark"
-                    size="lg"
-                    className="w-100 mt-5 fw-semibold"
-                    disabled={isLoading}
-                  >
+                  <Button type="submit" variant="dark" size="lg" className="w-100 mt-5 fw-semibold" disabled={isLoading}>
                     {isLoading ? 'Processing...' : 'Place Order & Pay'}
                   </Button>
                 </Form>
@@ -289,9 +241,17 @@ const Checkout = () => {
                   {cart.map(item => (
                     <ListGroup.Item key={item.cartItemId} className="d-flex justify-content-between align-items-center px-0">
                       <div className="d-flex align-items-center">
-                        <Image src={item.images[0]} alt={item.name} rounded style={{ width: '60px' }} />
+                        <Image 
+                           // Handle custom image or standard image array
+                           src={item.isCustom ? (item.customPrintUrl || item.images[0]) : item.images[0]} 
+                           alt={item.name} 
+                           rounded 
+                           style={{ width: '60px', height: '60px', objectFit: 'cover' }} 
+                        />
                         <div className="ms-3">
-                          <h6 className="fw-semibold mb-0 fs-6">{item.name}</h6>
+                          <h6 className="fw-semibold mb-0 fs-6">
+                             {item.isCustom ? <span className="text-primary">Custom Design</span> : item.name}
+                          </h6>
                           <span className="text-muted small">Size: {item.size} | Qty: {item.qty}</span>
                         </div>
                       </div>

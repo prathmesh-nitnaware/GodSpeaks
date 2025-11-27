@@ -1,8 +1,9 @@
-import React from 'react';
-import { Container, Row, Col, Button, Alert } from 'react-bootstrap';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Container, Row, Col, Button, Alert, Toast, ToastContainer } from 'react-bootstrap';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useWishlist } from '../../context/WishlistContext';
 import ProductCard from '../../components/Products/ProductCard';
+import { fetchProductById } from '../../api/productsApi'; // Helper to fetch shared products
 
 // --- Icon Definition ---
 const HeartBrokenIcon = () => (
@@ -12,27 +13,87 @@ const HeartBrokenIcon = () => (
 );
 
 const Wishlist = () => {
-  const { wishlist } = useWishlist();
+  const { wishlist, addToWishlist } = useWishlist();
+  const [searchParams] = useSearchParams();
+  
+  const [sharedItems, setSharedItems] = useState([]);
+  const [isSharedMode, setIsSharedMode] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+
+  // --- 1. Check for Shared Link on Load ---
+  useEffect(() => {
+    const sharedIds = searchParams.get('share');
+    if (sharedIds) {
+        setIsSharedMode(true);
+        const ids = sharedIds.split(',');
+        
+        // Fetch product details for these IDs from backend
+        const fetchShared = async () => {
+            const promises = ids.map(id => fetchProductById(id));
+            try {
+                // Wait for all product details to load
+                const products = await Promise.all(promises);
+                // Filter out any null results (in case a product was deleted)
+                setSharedItems(products.filter(p => p));
+            } catch (e) {
+                console.error("Error loading shared wishlist", e);
+            }
+        };
+        fetchShared();
+    }
+  }, [searchParams]);
+
+  // --- 2. Generate Share Link ---
+  const handleShare = () => {
+      if (wishlist.length === 0) return;
+      
+      const ids = wishlist.map(p => p._id).join(',');
+      const url = `${window.location.origin}/wishlist?share=${ids}`;
+      
+      navigator.clipboard.writeText(url).then(() => {
+          setShowToast(true);
+      });
+  };
+
+  // Determine which list to show (My Wishlist vs Shared Wishlist)
+  const displayList = isSharedMode ? sharedItems : wishlist;
 
   return (
-    <Container className="py-5">
-      <h1 className="display-5 fw-bold text-center text-dark mb-5">
-        My Wishlist
-      </h1>
+    <Container className="py-5 position-relative">
+      <div className="d-flex justify-content-between align-items-center mb-5">
+          <h1 className="display-5 fw-bold text-dark mb-0">
+            {isSharedMode ? "Shared Wishlist" : "My Wishlist"}
+          </h1>
+          
+          {/* Show Share Button only on My Wishlist if it has items */}
+          {!isSharedMode && wishlist.length > 0 && (
+              <Button variant="outline-primary" onClick={handleShare}>
+                  Share List <i className="bi bi-share"></i>
+              </Button>
+          )}
+      </div>
 
-      {wishlist.length === 0 ? (
+      {isSharedMode && (
+          <Alert variant="info" className="mb-4">
+              You are viewing a shared wishlist. 
+              <Button variant="link" as={Link} to="/wishlist" className="p-0 ms-2 fw-bold">
+                  Go to my list &rarr;
+              </Button>
+          </Alert>
+      )}
+
+      {displayList.length === 0 ? (
         <Row className="justify-content-center">
           <Col md={8}>
             <Alert variant="light" className="text-center p-5 shadow-sm">
               <div className="mb-3">
-                {/* --- FIX: Now using the icon component --- */}
                 <HeartBrokenIcon />
               </div>
               <h2 className="mt-2 h3 fw-semibold text-dark">
-                Your wishlist is empty
+                {isSharedMode ? "This shared list is empty or invalid." : "Your wishlist is empty"}
               </h2>
               <p className="text-muted fs-5 mt-2">
-                Save items you love here to buy them later.
+                {isSharedMode ? "" : "Save items you love here to buy them later."}
               </p>
               <Button as={Link} to="/shop" variant="dark" size="lg" className="mt-4 fw-semibold">
                 Explore Products
@@ -42,13 +103,38 @@ const Wishlist = () => {
         </Row>
       ) : (
         <Row xs={1} sm={2} md={3} lg={4} className="g-4">
-          {wishlist.map((product) => (
+          {displayList.map((product) => (
             <Col key={product._id}>
-              <ProductCard product={product} />
+              {/* Reuse ProductCard, but in shared mode add explicit Save button */}
+              <div className="h-100">
+                  <ProductCard product={product} />
+                  {isSharedMode && (
+                      <Button 
+                        variant="primary" 
+                        size="sm" 
+                        className="w-100 mt-2" 
+                        onClick={() => addToWishlist(product)}
+                      >
+                          Save to My Wishlist
+                      </Button>
+                  )}
+              </div>
             </Col>
           ))}
         </Row>
       )}
+
+      {/* Copy Link Success Toast */}
+      <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 1000 }}>
+        <Toast onClose={() => setShowToast(false)} show={showToast} delay={3000} autohide bg="success">
+          <Toast.Header>
+            <strong className="me-auto text-dark">GodSpeaks</strong>
+          </Toast.Header>
+          <Toast.Body className="text-white">
+            Wishlist link copied to clipboard! Share it with friends.
+          </Toast.Body>
+        </Toast>
+      </ToastContainer>
     </Container>
   );
 };

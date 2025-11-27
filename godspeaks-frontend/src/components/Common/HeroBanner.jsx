@@ -1,66 +1,86 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-// --- 1. IMPORT BOOTSTRAP COMPONENTS ---
-import { Container, Button } from 'react-bootstrap';
+import { Container, Button, Row, Col } from 'react-bootstrap';
+import { motion } from 'framer-motion';
 
-// --- 2. IMPORT THE HERO IMAGE ---
-// Make sure you have placed your image at this path: 
-// src/assets/hero-background.jpg
+// Import the local image
 import heroImage from '../../assets/hero-background.jpg'; 
 
 const HeroBanner = () => {
-
-  // --- 3. INLINE STYLE FOR THE BACKGROUND IMAGE ---
-  // We apply this to a wrapper div
-  const heroStyle = {
-    backgroundImage: `url(${heroImage})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    color: 'white' // Default text color on image
-  };
-
   return (
-    <div style={heroStyle}>
-      {/* This overlay adds a dark tint so the white text is readable,
-        matching your design. 'vh-75' makes it 75% of the viewport height.
-        'd-flex' and 'align-items-center' vertically center the content.
-      */}
-      <div className="bg-dark bg-opacity-50">
-        <Container className="py-5">
-          {/* 'py-5' adds padding, 'text-md-start' aligns text left on medium screens+ */}
-          <div className="py-5 text-center text-md-start col-md-10 col-lg-8">
-            
-            {/* Subtitle from design */}
-            <h2 className="text-uppercase small fw-semibold text-light">
-              New Collection
-            </h2>
-            
-            {/* Main Headline from design */}
-            {/* 'display-3' is a large headline, 'fw-bold' is font-weight bold */}
-            <h1 className="display-3 fw-bold text-white mt-2">
-              Wear Your Faith
-            </h1>
-            
-            {/* Description from design */}
-            <p className="fs-5 text-light-emphasis mt-3">
-              Inspire others with beautiful Christian apparel featuring
-              Scripture and messages of hope, love, and faith.
-            </p>
-            
-            {/* Call to Action Button */}
-            {/* 'btn-primary' is blue, 'btn-lg' is a large button */}
-            <Button 
-              as={Link} 
-              to="/shop" 
-              variant="primary" 
-              size="lg" 
-              className="mt-4 fw-bold"
+    <div 
+      className="bg-dark text-white position-relative overflow-hidden" 
+      style={{ minHeight: '600px' }}
+    >
+      {/* Background Image Layer with Overlay */}
+      <div 
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundImage: `url(${heroImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.5, // Darkens the image so text is readable
+          zIndex: 1
+        }}
+      />
+
+      {/* Content Layer */}
+      <Container 
+        className="position-relative h-100 d-flex align-items-center" 
+        style={{ zIndex: 2, minHeight: '600px' }}
+      >
+        <Row className="w-100">
+          <Col lg={8} md={10}>
+            {/* Animation Wrapper */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8 }}
             >
-              Shop Collection
-            </Button>
-          </div>
-        </Container>
-      </div>
+              <h2 className="text-uppercase small fw-semibold text-warning mb-2">
+                New Collection
+              </h2>
+              
+              <h1 className="display-3 fw-bold mb-4">
+                Wear Your Faith. <br/>
+                <span>Share His Word.</span>
+              </h1>
+              
+              <p className="lead mb-5 fs-4" style={{ maxWidth: '600px', opacity: 0.9 }}>
+                Inspire others with beautiful Christian apparel featuring Scripture and messages of hope, love, and faith.
+              </p>
+              
+              {/* Call to Action Buttons */}
+              <div className="d-flex flex-wrap gap-3">
+                <Button 
+                  as={Link} 
+                  to="/shop" 
+                  variant="primary" 
+                  size="lg" 
+                  className="px-5 py-3 fw-bold rounded-pill"
+                >
+                  Shop Collection
+                </Button>
+                
+                {/* --- NEW BUTTON: Link to Custom Print Page --- */}
+                <Button 
+                  as={Link} 
+                  to="/custom-print" 
+                  variant="outline-light" 
+                  size="lg" 
+                  className="px-5 py-3 fw-bold rounded-pill"
+                >
+                  Design Your Own
+                </Button>
+              </div>
+            </motion.div>
+          </Col>
+        </Row>
+      </Container>
     </div>
   );
 };

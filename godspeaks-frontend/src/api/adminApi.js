@@ -1,205 +1,56 @@
-// This file handles all authenticated API requests for the Admin dashboard.
+import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:5000/api/products'; // Or whatever your base is
-const ORDER_API_BASE_URL = 'http://localhost:5000/api/orders'; // Separate base for orders
+// --- CONFIGURATION ---
+const API_BASE_URL = 'http://localhost:5000/api/products';
+const ANALYTICS_URL = 'http://localhost:5000/api/analytics';
 
-// --- HELPER FUNCTION: Get Auth Header ---
-// This gets the admin's token from localStorage to send with API requests.
-const getAuthHeader = () => {
-  const adminInfo = JSON.parse(localStorage.getItem('godspeaks_admin'));
-  if (adminInfo && adminInfo.token) {
-    return {
-      'Authorization': `Bearer ${adminInfo.token}`,
-      // 'Content-Type': 'application/json' // FormData sets this automatically, but JSON requests need it
-    };
-  }
-  return {};
+// --- HELPER: Get Auth Header ---
+// Retrieves the token from local storage and formats it for the Authorization header
+const getAuthHeaders = () => {
+  const userInfo = localStorage.getItem('userInfo'); // Or 'godspeaks_admin' depending on what you used in AuthContext
+  const token = userInfo ? JSON.parse(userInfo).token : null;
+  return {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      // Note: We do NOT set 'Content-Type' manually here because 
+      // when sending FormData (for image uploads), axios sets it automatically.
+    },
+  };
 };
 
-// ===========================================
-// PRODUCT API FUNCTIONS
-// ===========================================
+// --- PRODUCT API FUNCTIONS ---
 
-/**
- * Fetches all products (for the admin panel).
- * @returns {Promise<Array>} A promise that resolves to an array of product objects.
- */
-export const fetchAllProductsAdmin = async () => {
-  console.log("ADMIN API CALL: fetchAllProductsAdmin()");
-  
-  try {
-    const response = await fetch(API_BASE_URL, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to fetch products`);
-    }
-
-    // If backend returns { products: [...], count: ... }, adjust accordingly
-    const data = await response.json();
-    return data.products || data; 
-
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    throw error;
-  }
-};
-
-/**
- * Creates a new product.
- * @param {FormData} productData - The form data (including text and images).
- * @returns {Promise<object>} - A promise that resolves to the new product.
- */
+// 1. Create Product (Expects FormData)
 export const createProductApi = async (productData) => {
-  console.log("ADMIN API CALL: createProductApi()");
-  
-  try {
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
-      headers: {
-        // Content-Type is automatically set for FormData
-        ...getAuthHeader()
-      },
-      body: productData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to create product`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error creating product:", error);
-    throw error;
-  }
+  const { data } = await axios.post(API_BASE_URL, productData, getAuthHeaders());
+  return data;
 };
 
-/**
- * Updates an existing product.
- * @param {string} id - The ID of the product to update.
- * @param {FormData} productData - The form data (including text and images).
- * @returns {Promise<object>} - A promise that resolves to the updated product.
- */
+// 2. Update Product (Expects FormData)
 export const updateProductApi = async (id, productData) => {
-  console.log(`ADMIN API CALL: updateProductApi(${id})`);
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
-      method: 'PUT',
-      headers: {
-        // Content-Type is automatically set for FormData
-        ...getAuthHeader()
-      },
-      body: productData,
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to update product`);
-    }
-
-    return await response.json(); // Usually returns the updated product object
-  } catch (error) {
-    console.error("Error updating product:", error);
-    throw error;
-  }
+  const { data } = await axios.put(`${API_BASE_URL}/${id}`, productData, getAuthHeaders());
+  return data;
 };
 
-/**
- * Deletes a product.
- * @param {string} productId - The ID of the product to delete.
- * @returns {Promise<object>} - A promise that resolves to a success message.
- */
-export const deleteProductApi = async (productId) => {
-  console.log(`ADMIN API CALL: deleteProductApi(${productId})`);
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}/${productId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to delete product`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error deleting product:", error);
-    throw error;
-  }
+// 3. Delete Product
+export const deleteProductApi = async (id) => {
+  const { data } = await axios.delete(`${API_BASE_URL}/${id}`, getAuthHeaders());
+  return data;
 };
 
-// ===========================================
-// ORDER API FUNCTIONS
-// ===========================================
-
-/**
- * Fetches all orders for the admin panel.
- * @returns {Promise<Array>} A promise that resolves to an array of order objects.
- */
-export const fetchAllOrdersAdmin = async () => {
-  console.log("ADMIN API CALL: fetchAllOrdersAdmin()");
-  
-  try {
-    const response = await fetch(ORDER_API_BASE_URL, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
-      }
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to fetch orders`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error fetching orders:", error);
-    throw error;
-  }
+// 4. Fetch All Products (Admin View)
+// This might be the same as the public view, but we define it here for clarity
+// in case you add admin-specific fields later (like hidden products).
+export const fetchAllProductsAdmin = async () => {
+  const { data } = await axios.get(API_BASE_URL); 
+  // Handle case where backend returns { products: [...] } or just [...]
+  return data.products || data;
 };
 
-/**
- * Updates an order's status.
- * @param {string} orderId - The ID of the order to update.
- * @param {string} status - The new status (e.g., "Shipped").
- * @returns {Promise<object>} - A promise that resolves to the updated order.
- */
-export const updateOrderStatusApi = async (orderId, status) => {
-  console.log(`ADMIN API CALL: updateOrderStatusApi(${orderId}, ${status})`);
-  
-  try {
-    const response = await fetch(`${ORDER_API_BASE_URL}/${orderId}/status`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
-      },
-      body: JSON.stringify({ status }),
-    });
+// --- ANALYTICS API FUNCTIONS ---
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Failed to update order status`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error("Error updating order status:", error);
-    throw error;
-  }
+// 5. Fetch Admin Dashboard Stats
+export const fetchDashboardStatsApi = async () => {
+  const { data } = await axios.get(ANALYTICS_URL, getAuthHeaders());
+  return data;
 };
