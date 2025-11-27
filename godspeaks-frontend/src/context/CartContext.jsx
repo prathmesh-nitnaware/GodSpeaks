@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import axios from 'axios'; 
+import { useAuth } from './AuthContext'; // To access the token
 
 // --- 1. Define Action Types ---
 const ACTIONS = {
@@ -18,8 +20,14 @@ const cartReducer = (state, action) => {
   
   switch (action.type) {
     case ACTIONS.ADD_ITEM: {
-      const { product, size, qty } = action.payload;
-      const cartItemId = `${product._id}-${size}`;
+      const { product, size, qty, isCustom, customPrintUrl } = action.payload;
+      
+      // Generate ID:
+      // If Custom: use timestamp to make every custom design unique
+      // If Standard: use productID + size
+      const cartItemId = isCustom 
+        ? `custom-${Date.now()}` 
+        : `${product._id}-${size}`;
       
       const existingItem = state.cart.find(item => item.cartItemId === cartItemId);
 
@@ -33,6 +41,8 @@ const cartReducer = (state, action) => {
           cartItemId,
           size,
           qty,
+          isCustom: isCustom || false,
+          customPrintUrl: customPrintUrl || null
         };
         newCart = [...state.cart, newItem];
       }
@@ -91,7 +101,9 @@ const initialState = {
 export const CartProvider = ({ children }) => {
   
   const [state, dispatch] = useReducer(cartReducer, initialState);
+  const { adminInfo } = useAuth(); // Access auth state to sync cart
 
+  // Load from LocalStorage on mount
   useEffect(() => {
     const savedCart = localStorage.getItem('godspeaks_cart');
     if (savedCart) {
@@ -99,9 +111,35 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
+  // --- NEW: Sync Cart with Backend (Abandoned Cart Recovery) ---
+  useEffect(() => {
+    // Only sync if user is logged in (has token) AND cart has items
+    if (adminInfo?.token && state.cart.length > 0) {
+        const syncCart = async () => {
+            try {
+                // Adjust URL if your backend port is different
+                await axios.post(
+                    'http://localhost:5000/api/cart/sync', 
+                    { items: state.cart }, 
+                    { headers: { Authorization: `Bearer ${adminInfo.token}` } }
+                );
+            } catch (error) {
+                console.error("Failed to sync cart with backend:", error);
+            }
+        };
+
+        // Debounce: Wait 2 seconds after last change before syncing to avoid spamming API
+        const timeoutId = setTimeout(() => {
+            syncCart();
+        }, 2000);
+
+        return () => clearTimeout(timeoutId);
+    }
+  }, [state.cart, adminInfo]);
+
   // --- 6. Action Functions ---
-  const addItemToCart = (product, size, qty = 1) => {
-    dispatch({ type: ACTIONS.ADD_ITEM, payload: { product, size, qty } });
+  const addItemToCart = (product, size, qty = 1, isCustom = false, customPrintUrl = null) => {
+    dispatch({ type: ACTIONS.ADD_ITEM, payload: { product, size, qty, isCustom, customPrintUrl } });
   };
 
   const removeItemFromCart = (cartItemId) => {

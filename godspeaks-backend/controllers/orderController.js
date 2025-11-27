@@ -3,23 +3,35 @@ const Product = require('../models/Product');
 const { createRazorpayOrder, verifyRazorpaySignature } = require('../services/razorpayService');
 const mongoose = require('mongoose'); 
 
-// --- HELPER FUNCTION: Calculate Total Price ---
+// --- HELPER: Calculate Price ---
 const calculatePrice = async (orderItems) => {
-    let itemsPrice = 0;
-    // --- MOCK CALCULATION ---
-    itemsPrice = orderItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
+    // Calculate simple total
+    let itemsPrice = orderItems.reduce((acc, item) => acc + (item.price * item.qty), 0);
     
+    // Free shipping over ₹2000 (200000 paisa)
     const shippingPrice = itemsPrice > 200000 ? 0 : 5000; 
     const totalPrice = itemsPrice + shippingPrice;
 
     return { itemsPrice, shippingPrice, totalPrice };
 };
 
-// --- HELPER FUNCTION: Update Stock ---
+// --- HELPER: Update Stock ---
 const updateStock = async (orderItems) => {
-    console.log("Stock update skipped (DB inactive). Items:", orderItems.map(i => `${i.name} (Size: ${i.size}, Qty: ${i.qty})`));
+    // We only update stock for standard products, not custom prints
+    for (const item of orderItems) {
+        if (!item.isCustom) {
+            const product = await Product.findById(item.product);
+            if (product) {
+                // In a true POD system, we might not track stock at all,
+                // but if you have hybrid (some stock, some POD), we keep this.
+                // However, since we switched to "Sizes Only" in the previous step,
+                // we technically don't have counts to decrement.
+                // We will leave this blank or log it for now.
+                console.log(`POD Item: ${item.name} sold. No stock decrement needed.`);
+            }
+        }
+    }
 };
-
 
 // =========================================================================
 // CONTROLLERS
@@ -29,6 +41,10 @@ const updateStock = async (orderItems) => {
 // @route   POST /api/orders/create
 const createOrder = async (req, res) => {
     const { orderItems, shippingInfo } = req.body;
+
+    if (!orderItems || orderItems.length === 0) {
+        return res.status(400).json({ message: 'No order items' });
+    }
 
     try {
         const { itemsPrice, shippingPrice, totalPrice } = await calculatePrice(orderItems);
@@ -43,9 +59,9 @@ const createOrder = async (req, res) => {
             isPaid: false,
         });
 
-        // --- TEMPORARY MOCK ID (Replace with order.save() later) ---
-        const createdOrder = { ...order._doc, _id: new mongoose.Types.ObjectId() };
+        const createdOrder = await order.save();
         
+        // Create Razorpay Order
         const razorpayOrder = await createRazorpayOrder(totalPrice);
 
         if (!razorpayOrder) {
@@ -61,6 +77,7 @@ const createOrder = async (req, res) => {
         });
 
     } catch (error) {
+        console.error("Create Order Error:", error);
         res.status(500).json({ message: 'Server error creating order.', error: error.message });
     }
 };
@@ -86,14 +103,7 @@ const verifyPaymentAndUpdateOrder = async (req, res) => {
             return res.status(400).json({ message: 'Payment verification failed: Invalid signature.' });
         }
         
-        // --- TEMPORARY MOCK ORDER ---
-        const order = { 
-            _id: order_id, 
-            isPaid: false, 
-            orderStatus: 'Pending', 
-            orderItems: [{ name: "Mock Tee", size: "L", qty: 1 }],
-            save: () => console.log("Mock order save called."), 
-        };
+        const order = await Order.findById(order_id);
 
         if (!order) {
             return res.status(404).json({ message: 'Order not found.' });
@@ -108,16 +118,18 @@ const verifyPaymentAndUpdateOrder = async (req, res) => {
             razorpay_signature,
         };
 
-        await updateStock(order.orderItems);
-
-        const updatedOrder = order; 
+        await order.save();
+        
+        // Optional: Update stock if you were tracking it
+        // await updateStock(order.orderItems);
 
         res.status(200).json({
             message: 'Payment successful! Order confirmed.',
-            order: updatedOrder,
+            order: order,
         });
 
     } catch (error) {
+        console.error(error);
         res.status(500).json({ message: 'Server error verifying payment.', error: error.message });
     }
 };
@@ -126,16 +138,7 @@ const verifyPaymentAndUpdateOrder = async (req, res) => {
 // @route   GET /api/orders/:id
 const getOrderById = async (req, res) => {
     try {
-        // --- MOCK DATA ---
-        const order = { 
-            _id: req.params.id, 
-            shippingInfo: { name: "Test User" }, 
-            orderItems: [{ name: "Mock Tee", size: "L", qty: 1 }],
-            totalPrice: 99900,
-            isPaid: true,
-            orderStatus: 'Processing'
-        };
-        
+        const order = await Order.findById(req.params.id).populate('user', 'name email');
         if (order) {
             res.json(order);
         } else {
@@ -146,31 +149,13 @@ const getOrderById = async (req, res) => {
     }
 };
 
-// @desc    Get guest orders
-// @route   GET /api/orders/my-orders/:email
-const getGuestOrders = async (req, res) => {
-    try {
-        // --- MOCK DATA ---
-        const orders = [{ 
-            _id: "60c72b2f9f1b2c001c8e4d22", 
-            shippingInfo: { email: req.params.email },
-            orderItems: [{ name: "Guest Order Tee", size: "M", qty: 2 }],
-            totalPrice: 199800,
-            orderStatus: 'Shipped',
-            createdAt: new Date()
-        }];
-        res.json(orders);
-    } catch (error) {
-        res.status(500).json({ message: 'Server error.', error: error.message });
-    }
-};
-
-// --- THIS WAS MISSING ---
 // @desc    Get logged in user orders
 // @route   GET /api/orders/myorders
 const getMyOrders = async (req, res) => {
     try {
-        // Find orders where shipping email matches the logged-in user's email
+        // Find orders by the email saved in Shipping Info (since we treat users as "guests" sometimes)
+        // OR if you are strictly using req.user._id, change this query.
+        // Here we stick to email for flexibility.
         const orders = await Order.find({ 'shippingInfo.email': req.user.email }).sort({ createdAt: -1 });
         res.json(orders);
     } catch (error) {
@@ -186,20 +171,7 @@ const getMyOrders = async (req, res) => {
 // @route   GET /api/orders
 const getAllOrders = async (req, res) => {
     try {
-        // --- MOCK DATA ---
-        const orders = [{ 
-            _id: "60c72b2f9f1b2c001c8e4d22", 
-            shippingInfo: { name: "Test User 1" },
-            totalPrice: 199800,
-            orderStatus: 'Shipped',
-            isPaid: true
-        }, {
-            _id: "60c72b2f9f1b2c001c8e4d23", 
-            shippingInfo: { name: "Test User 2" },
-            totalPrice: 89900,
-            orderStatus: 'Processing',
-            isPaid: true
-        }];
+        const orders = await Order.find({}).sort({ createdAt: -1 });
         res.json(orders);
     } catch (error) {
         res.status(500).json({ message: 'Server error.', error: error.message });
@@ -212,13 +184,7 @@ const updateOrderStatus = async (req, res) => {
     const { status } = req.body; 
     
     try {
-        // --- MOCK DATA ---
-        const order = {
-            _id: req.params.id,
-            orderStatus: 'Processing',
-            isDelivered: false,
-            save: () => console.log("Mock order save called."),
-        };
+        const order = await Order.findById(req.params.id);
         
         if (order) {
             order.orderStatus = status;
@@ -226,7 +192,7 @@ const updateOrderStatus = async (req, res) => {
                 order.isDelivered = true;
                 order.deliveredAt = Date.now();
             }
-            const updatedOrder = order;
+            const updatedOrder = await order.save();
             res.json(updatedOrder);
         } else {
             res.status(404).json({ message: 'Order not found' });
@@ -240,8 +206,7 @@ module.exports = {
     createOrder,
     verifyPaymentAndUpdateOrder,
     getOrderById,
-    getGuestOrders,
     getAllOrders,
     updateOrderStatus,
-    getMyOrders, // <--- Now this will work because the function is defined above
+    getMyOrders,
 };

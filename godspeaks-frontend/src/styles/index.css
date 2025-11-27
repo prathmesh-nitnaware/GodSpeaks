@@ -1,3 +1,78 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* --- 1. GLOBAL SCALE REDUCTION --- */
+html {
+  /* Default browser font-size is 16px. 
+     Setting this to 85% makes the base size ~13.6px.
+     Since Bootstrap uses 'rem' units, this scales down 
+     all buttons, inputs, spacing, and text automatically.
+  */
+  font-size: 82%; 
+}
+
+/* On very small mobile screens, we can bump it back up slightly for readability */
+@media (max-width: 576px) {
+  html {
+    font-size: 90%;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #f8f9fa; /* Light Gray Background */
+  
+  /* Ensure content fills height */
+  min-height: 100vh;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* --- Utility Classes --- */
+
+/* Hover effects for cards */
+.hover-shadow:hover {
+  transform: translateY(-3px); /* Reduced movement for subtler effect */
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+.transition {
+  transition: all 0.3s ease-in-out;
+}
+
+/* Dashed Border for Empty States */
+.dashed-border {
+    border: 2px dashed #dee2e6 !important;
+}
+
+/* --- Custom Scrollbar --- */
+/* Makes the scrollbar thinner and cleaner */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1; 
+}
+::-webkit-scrollbar-thumb {
+  background: #ccc; 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #aaa; 
+}
+
+/* --- Bootstrap Overrides (Optional Polish) --- */
+.btn {
+    font-weight: 500; /* Slightly bolder buttons */
+}
+.card {
+    border: none; /* Remove default card borders for cleaner look */
+}

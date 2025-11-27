@@ -1,30 +1,21 @@
 const nodemailer = require('nodemailer');
 
 // --- 1. CREATE NODEMAILER TRANSPORTER ---
-// This transporter object is what actually sends the email.
-// We configure it once here and reuse it.
 const transporter = nodemailer.createTransport({
-    // --- SERVICE CONFIGURATION ---
-    // Use 'Gmail' for easy testing, or use SMTP for services like SendGrid.
-    service: 'Gmail', // <-- REPLACE with 'SendGrid', 'Brevo', etc. for production
+    service: 'Gmail', 
     auth: {
-        // --- YOUR EMAIL CREDENTIALS ---
-        // IMPORTANT: These MUST be in your .env file
-        user: process.env.EMAIL_USER, // <-- REPLACE IN .ENV (e.g., yourname@gmail.com)
-        pass: process.env.EMAIL_PASS, // <-- REPLACE IN .ENV (e.g., your Gmail App Password)
+        user: process.env.EMAIL_USER, 
+        pass: process.env.EMAIL_PASS, 
     },
 });
 
-/**
- * Sends a test email to verify the transporter configuration.
- */
 const sendTestEmail = async (recipientEmail) => {
     const mailOptions = {
-        from: `"GodSpeaks" <${process.env.EMAIL_USER}>`, // Sender address
-        to: recipientEmail, // List of receivers
-        subject: "GodSpeaks - Nodemailer Test", // Subject line
-        text: "Hello! This is a test email from the GodSpeaks e-commerce backend.", // Plain text body
-        html: "<b>Hello!</b><p>This is a test email from the GodSpeaks e-commerce backend.</p>", // HTML body
+        from: `"GodSpeaks" <${process.env.EMAIL_USER}>`, 
+        to: recipientEmail, 
+        subject: "GodSpeaks - Nodemailer Test", 
+        text: "Hello! This is a test email from the GodSpeaks e-commerce backend.", 
+        html: "<b>Hello!</b><p>This is a test email from the GodSpeaks e-commerce backend.</p>", 
     };
 
     try {
@@ -39,40 +30,64 @@ const sendTestEmail = async (recipientEmail) => {
 
 /**
  * Sends an order confirmation email to the customer.
- * @param {object} order - The complete order object (from Order.js model)
+ * @param {object} order - The complete order object
  */
 const sendOrderConfirmation = async (order) => {
     // --- 1. PREPARE DATA ---
     const customerEmail = order.shippingInfo.email;
     const customerName = order.shippingInfo.name;
-    const orderId = order._id.toString().slice(-6).toUpperCase(); // Short, nice order ID
-    const totalPriceInRupees = (order.totalPrice / 100).toFixed(2); // Convert paisa to ₹
+    const orderId = order._id.toString().slice(-6).toUpperCase(); 
+    const totalPriceInRupees = (order.totalPrice / 100).toFixed(2); 
 
     // --- 2. CREATE HTML TEMPLATE ---
-    // A simple HTML template for the email body
     const emailHtml = `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-            <h2>Thank you for your order, ${customerName}!</h2>
-            <p>Your order (<b>#${orderId}</b>) has been confirmed and is now processing.</p>
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px; margin: 0 auto; color: #333;">
+            <div style="background-color: #000; color: #fff; padding: 20px; text-align: center;">
+                <h1 style="margin:0;">GodSpeaks</h1>
+            </div>
             
-            <h3>Order Summary:</h3>
-            <ul>
-                ${order.orderItems.map(item => `
-                    <li>
-                        ${item.name} (Size: ${item.size}) - ${item.qty} x ₹${(item.price / 100).toFixed(2)}
-                    </li>
-                `).join('')}
-            </ul>
-            <hr>
-            <p><b>Total: ₹${totalPriceInRupees}</b></p>
-            
-            <p>You can track your order status using your email on our website.</p>
-            <p>We appreciate your business!</p>
-            <p>- The GodSpeaks Team</p>
+            <div style="padding: 20px; border: 1px solid #ddd;">
+                <h2 style="color: #0d6efd;">Thank you for your order, ${customerName}!</h2>
+                <p>Your order (<b>#${orderId}</b>) has been confirmed and is now processing.</p>
+                
+                <h3>Order Summary:</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    ${order.orderItems.map(item => `
+                        <tr style="border-bottom: 1px solid #eee;">
+                            <td style="padding: 10px;">
+                                <img src="${item.image}" alt="${item.name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                            </td>
+                            <td style="padding: 10px;">
+                                <strong>${item.name}</strong><br/>
+                                <span style="font-size: 12px; color: #777;">Size: ${item.size}</span>
+                            </td>
+                            <td style="padding: 10px; text-align: right;">
+                                ${item.qty} x ₹${(item.price / 100).toFixed(2)}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </table>
+                
+                <div style="text-align: right; margin-top: 20px;">
+                    <p style="font-size: 18px;"><b>Total: ₹${totalPriceInRupees}</b></p>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                
+                <p><b>Shipping Address:</b><br/>
+                ${order.shippingInfo.address}<br/>
+                ${order.shippingInfo.city}, ${order.shippingInfo.state} - ${order.shippingInfo.postalCode}<br/>
+                Phone: ${order.shippingInfo.phone}
+                </p>
+
+                <p style="margin-top: 30px; font-size: 12px; color: #999; text-align: center;">
+                    You can track your order status by logging into your account on our website.<br/>
+                    Thank you for supporting GodSpeaks.
+                </p>
+            </div>
         </div>
     `;
 
-    // --- 3. DEFINE MAIL OPTIONS ---
     const mailOptions = {
         from: `"GodSpeaks" <${process.env.EMAIL_USER}>`,
         to: customerEmail,
@@ -80,23 +95,19 @@ const sendOrderConfirmation = async (order) => {
         html: emailHtml,
     };
 
-    // --- 4. SEND EMAIL ---
     try {
-        // NOTE: In a real app, you'd only enable this once the DB is working
-        // and you've tested the transporter configuration.
-        
-        // let info = await transporter.sendMail(mailOptions);
-        // console.log(`Order confirmation sent to ${customerEmail}. Message ID: ${info.messageId}`);
+        // --- UNCOMMENT THIS TO ACTUALLY SEND EMAILS ---
+        // await transporter.sendMail(mailOptions);
+        // console.log(`Order confirmation sent to ${customerEmail}`);
         
         console.log(`--- EMAIL SIMULATION (DB Inactive) ---`);
         console.log(`To: ${customerEmail}`);
         console.log(`Subject: Order Confirmed - Your GodSpeaks Order #${orderId}`);
+        console.log(`(Email Content generated with images)`);
         console.log(`----------------------------------------`);
         
     } catch (error) {
         console.error(`Error sending order confirmation email: ${error.message}`);
-        // We don't throw an error here because the payment was successful;
-        // failing the email shouldn't fail the order verification.
     }
 };
 

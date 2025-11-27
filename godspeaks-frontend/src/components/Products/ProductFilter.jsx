@@ -3,7 +3,8 @@ import { Card, Form, Button } from 'react-bootstrap';
 
 const ProductFilter = ({ filters, onFilterChange, onClearFilters }) => {
   const categories = ['Faith', 'Scripture', 'Minimalist', 'Inspirational'];
-  const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+  // --- UPDATED SIZES FOR POD ---
+  const sizes = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
   const handleCheckboxChange = (groupKey, value) => {
     const currentValues = filters[groupKey] || [];
@@ -54,7 +55,7 @@ const ProductFilter = ({ filters, onFilterChange, onClearFilters }) => {
             ))}
           </Form.Group>
 
-          {/* --- Size Filter (NEW) --- */}
+          {/* --- Size Filter --- */}
           <Form.Group className="mb-4">
             <Form.Label className="fw-semibold fs-6 mb-2">Size</Form.Label>
             <div className="d-flex flex-wrap gap-2">

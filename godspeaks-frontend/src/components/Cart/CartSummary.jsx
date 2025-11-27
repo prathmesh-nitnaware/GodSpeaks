@@ -1,65 +1,68 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Card, Button, ListGroup } from 'react-bootstrap';
 import { useCart } from '../../context/CartContext';
-// --- 1. IMPORT BOOTSTRAP COMPONENTS ---
-import { Card, ListGroup, Button } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 
 const CartSummary = () => {
-  const { totalPrice } = useCart();
+  const { cart, totalPrice } = useCart();
+  const navigate = useNavigate();
 
-  const subtotalInRupees = (totalPrice / 100).toFixed(2);
-  
-  // TODO: Add real shipping calculation
-  const shippingInRupees = (50).toFixed(2); // Placeholder
-  const totalInRupees = ((totalPrice / 100) + 50).toFixed(2); // Placeholder
+  // Logic matches Backend: Free shipping if subtotal > ₹2000 (200000 paisa)
+  // Otherwise ₹50 (5000 paisa)
+  const SHIPPING_THRESHOLD = 200000; 
+  const SHIPPING_COST = 5000;
+
+  const subtotal = totalPrice; // Already in Paisa
+  const shipping = subtotal > SHIPPING_THRESHOLD ? 0 : SHIPPING_COST;
+  const finalTotal = subtotal + shipping;
+
+  const handleCheckout = () => {
+    navigate('/checkout');
+  };
 
   return (
-    // --- 2. USE BOOTSTRAP CARD ---
-    // 'sticky-top' makes the summary stick on desktop
-    <Card className="shadow-sm border-0" style={{ top: '6rem' }}> 
-      <Card.Body>
-        <Card.Title as="h3" className="fw-bold fs-4 mb-3">
+    <Card className="shadow-sm border-0 sticky-top" style={{ top: '6rem' }}>
+      <Card.Body className="p-4">
+        <Card.Title as="h3" className="fw-bold fs-4 mb-4">
           Order Summary
         </Card.Title>
         
-        {/* 'list-group-flush' removes borders */}
         <ListGroup variant="flush">
-          {/* Subtotal */}
-          <ListGroup.Item className="d-flex justify-content-between px-0">
+          <ListGroup.Item className="d-flex justify-content-between px-0 py-3 border-bottom">
             <span className="text-muted">Subtotal</span>
-            <span className="fw-medium">₹{subtotalInRupees}</span>
+            <span className="fw-medium">₹{(subtotal / 100).toFixed(2)}</span>
           </ListGroup.Item>
           
-          {/* Shipping (Placeholder) */}
-          <ListGroup.Item className="d-flex justify-content-between px-0">
-            <span className="text-muted">Shipping (Est.)</span>
-            <span className="fw-medium">₹{shippingInRupees}</span>
+          <ListGroup.Item className="d-flex justify-content-between px-0 py-3 border-bottom">
+            <span className="text-muted">Shipping</span>
+            {shipping === 0 ? (
+              <span className="text-success fw-bold">FREE</span>
+            ) : (
+              <span className="fw-medium">₹{(shipping / 100).toFixed(2)}</span>
+            )}
           </ListGroup.Item>
           
-          {/* Order Total */}
-          <ListGroup.Item className="d-flex justify-content-between px-0 mt-2 pt-3 border-top">
-            <span className="fw-bold fs-5">Order total</span>
-            <span className="fw-bold fs-5">₹{totalInRupees}</span>
+          <ListGroup.Item className="d-flex justify-content-between px-0 py-3 border-bottom">
+            <span className="fw-bold fs-5">Total</span>
+            <span className="fw-bold fs-5">₹{(finalTotal / 100).toFixed(2)}</span>
           </ListGroup.Item>
         </ListGroup>
 
-        {/* Checkout Button */}
+        {shipping > 0 && (
+           <div className="alert alert-info mt-3 py-2 small text-center mb-0">
+             Add <strong>₹{((SHIPPING_THRESHOLD - subtotal) / 100).toFixed(0)}</strong> more for free shipping!
+           </div>
+        )}
+
         <Button 
-          as={Link} 
-          to="/checkout" 
-          variant="dark" // 'dark' is black
-          size="lg"      // 'lg' is large
+          variant="dark" 
+          size="lg" 
           className="w-100 mt-4 fw-semibold"
+          onClick={handleCheckout}
+          disabled={cart.length === 0}
         >
           Proceed to Checkout
         </Button>
-        
-        {/* Continue Shopping Link */}
-        <div className="text-center mt-3">
-          <Link to="/shop" className="text-primary text-decoration-none fw-medium">
-            or Continue Shopping<span aria-hidden="true"> &rarr;</span>
-          </Link>
-        </div>
       </Card.Body>
     </Card>
   );
