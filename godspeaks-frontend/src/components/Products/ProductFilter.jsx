@@ -3,20 +3,18 @@ import { Card, Form, Button } from 'react-bootstrap';
 
 const ProductFilter = ({ filters, onFilterChange, onClearFilters }) => {
   const categories = ['Faith', 'Scripture', 'Minimalist', 'Inspirational'];
+  const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
 
-  const handleCategoryChange = (category) => {
-    const currentCategories = filters.category || [];
-    let newCategories;
+  const handleCheckboxChange = (groupKey, value) => {
+    const currentValues = filters[groupKey] || [];
+    let newValues;
 
-    if (currentCategories.includes(category)) {
-      // Remove if already selected
-      newCategories = currentCategories.filter(c => c !== category);
+    if (currentValues.includes(value)) {
+      newValues = currentValues.filter(v => v !== value);
     } else {
-      // Add if not selected
-      newCategories = [...currentCategories, category];
+      newValues = [...currentValues, value];
     }
-
-    onFilterChange('category', newCategories);
+    onFilterChange(groupKey, newValues);
   };
 
   const handlePriceChange = (e) => {
@@ -42,18 +40,37 @@ const ProductFilter = ({ filters, onFilterChange, onClearFilters }) => {
         <Form>
           {/* --- Category Filter --- */}
           <Form.Group className="mb-4">
-            <Form.Label className="fw-semibold fs-6 mb-3">Category</Form.Label>
+            <Form.Label className="fw-semibold fs-6 mb-2">Category</Form.Label>
             {categories.map((category) => (
               <Form.Check 
                 key={category}
                 type="checkbox"
                 id={`category-${category}`}
                 label={category}
-                className="mb-2"
+                className="mb-1"
                 checked={filters.category?.includes(category) || false}
-                onChange={() => handleCategoryChange(category)}
+                onChange={() => handleCheckboxChange('category', category)}
               />
             ))}
+          </Form.Group>
+
+          {/* --- Size Filter (NEW) --- */}
+          <Form.Group className="mb-4">
+            <Form.Label className="fw-semibold fs-6 mb-2">Size</Form.Label>
+            <div className="d-flex flex-wrap gap-2">
+              {sizes.map((size) => (
+                <Form.Check 
+                  key={size}
+                  type="checkbox"
+                  id={`size-${size}`}
+                  label={size}
+                  inline
+                  className="mb-1 me-2"
+                  checked={filters.size?.includes(size) || false}
+                  onChange={() => handleCheckboxChange('size', size)}
+                />
+              ))}
+            </div>
           </Form.Group>
 
           {/* --- Price Range Filter --- */}
