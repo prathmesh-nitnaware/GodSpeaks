@@ -36,10 +36,16 @@ const AppNavbar = () => {
 
         <Navbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-             {/* --- NEW LINK: DESIGN YOUR OWN --- */}
              <LinkContainer to="/shop">
                 <Nav.Link>Shop</Nav.Link>
              </LinkContainer>
+             
+             {/* --- NEW LINK: VIRTUAL TRY ON --- */}
+             <LinkContainer to="/try-on">
+                <Nav.Link>Try On</Nav.Link>
+             </LinkContainer>
+
+             {/* --- CUSTOM PRINT LINK --- */}
              <LinkContainer to="/custom-print">
                 <Nav.Link className="fw-semibold text-primary">Design Your Own</Nav.Link>
              </LinkContainer>
