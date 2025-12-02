@@ -13,7 +13,7 @@ root.render(
   <React.StrictMode>
     {/* --- 2. Wrap the entire app with the Provider --- */}
     {/* REPLACE "YOUR_GOOGLE_CLIENT_ID" with your actual Client ID from Google Cloud Console */}
-    <GoogleOAuthProvider clientId="627461861284-58ptr3g91f4qke8s3l3g0o7p9egl2a1h.apps.googleusercontent.com">
+    <GoogleOAuthProvider clientId="YOUR_GOOGLE_CLIENT_ID">
       <BrowserRouter>
         <App />
       </BrowserRouter>

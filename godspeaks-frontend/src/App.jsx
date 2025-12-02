@@ -17,7 +17,8 @@ import About from './pages/Customer/About';
 import Contact from './pages/Customer/Contact';
 import CustomerDashboard from './pages/Customer/CustomerDashboard';
 import Wishlist from './pages/Customer/Wishlist';
-import CustomPrint from './pages/Customer/CustomPrint'; // <--- 1. IMPORT THIS
+import CustomPrint from './pages/Customer/CustomPrint';
+import VirtualTryOn from './pages/Customer/VirtualTryOn';
 
 // Admin Pages
 import AdminLogin from './pages/Admin/AdminLogin';
@@ -54,28 +55,30 @@ function App() {
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/wishlist" element={<Wishlist />} />
                 
-                {/* --- NEW ROUTE FOR CUSTOM PRINT --- */}
-                <Route path="/custom-print" element={<CustomPrint />} /> {/* <--- 2. ADD THIS */}
+                {/* --- NEW FEATURES ROUTES --- */}
+                <Route path="/custom-print" element={<CustomPrint />} />
+                <Route path="/try-on" element={<VirtualTryOn />} />
                 
                 {/* --- Public Admin Route (Login) --- */}
                 <Route path="/admin/login" element={<AdminLogin />} />
                 
-                {/* --- CUSTOMER PROTECTED ROUTES --- */}
+                {/* --- CUSTOMER PROTECTED ROUTES (Any logged in user) --- */}
                 <Route element={<ProtectedRoute adminOnly={false} />}>
                   <Route path="/account" element={<CustomerDashboard />} />
                 </Route>
 
-                {/* --- ADMIN PROTECTED ROUTES --- */}
+                {/* --- ADMIN PROTECTED ROUTES (Admins only) --- */}
                 <Route element={<ProtectedRoute adminOnly={true} />}>
                   <Route path="/admin/dashboard" element={<AdminDashboard />} />
                   <Route path="/admin/products" element={<ProductManagement />} />
                   <Route path="/admin/orders" element={<OrderManagement />} />
                 </Route>
 
-                {/* --- 404 Route --- */}
+                {/* --- 404 Not Found Route --- */}
                 <Route path="*" element={
                   <div className="text-center p-5">
                     <h1 className="display-4 fw-bold">404 - Page Not Found</h1>
+                    <p className="mt-3 fs-5">The page you are looking for does not exist.</p>
                   </div>
                 } />
               </Routes>
