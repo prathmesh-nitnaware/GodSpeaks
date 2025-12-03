@@ -1,244 +1,617 @@
-// ... (Imports remain the same) ...
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Card, Tab, Nav, Badge, Button, Spinner, Image, ProgressBar } from "react-bootstrap";
+import {
+  Container,
+  Row,
+  Col,
+  Nav,
+  Card,
+  Table,
+  Button,
+  Form,
+  Spinner,
+  Alert,
+  Badge,
+} from "react-bootstrap";
 import { useAuth } from "../../context/AuthContext";
-import { fetchMyOrdersApi } from "../../api/orderApi";
-import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
-import { useWishlist } from "../../context/WishlistContext";
-import ProductCard from "../../components/Products/ProductCard";
+import { useNavigate } from "react-router-dom";
+// You might need to implement/import a fetchMyOrders function in your orderApi
+// import { fetchMyOrders } from '../../api/orderApi';
 
-// ... (Icon components and OrderTimeline component remain the same) ...
-const BoxIcon = () => <span>📦</span>;
-const UserIcon = () => <span>👤</span>;
-const MapIcon = () => <span>📍</span>;
-const HeartIcon = () => <span>❤️</span>;
-const SignOutIcon = () => <span>🚪</span>;
-
-const OrderTimeline = ({ status }) => {
-  let progress = 0;
-  if (status === "Pending") progress = 10;
-  else if (status === "Processing") progress = 50;
-  else if (status === "Shipped") progress = 75;
-  else if (status === "Delivered") progress = 100;
-
-  const isCompleted = (stepStatus) => {
-    const stages = ["Pending", "Processing", "Shipped", "Delivered"];
-    return stages.indexOf(status) >= stages.indexOf(stepStatus);
-  };
-
-  if (status === "Cancelled") {
-    return <div className="text-danger fw-bold my-3">Order Cancelled</div>;
-  }
-
-  return (
-    <div className="py-3">
-      <ProgressBar now={progress} variant="success" style={{ height: "6px" }} className="mb-2" />
-      <div className="d-flex justify-content-between small fw-bold text-uppercase">
-        <span className={isCompleted("Pending") ? "text-success" : "text-muted"}>Placed</span>
-        <span className={isCompleted("Processing") ? "text-success" : "text-muted"}>Processing</span>
-        <span className={isCompleted("Shipped") ? "text-success" : "text-muted"}>Shipped</span>
-        <span className={isCompleted("Delivered") ? "text-success" : "text-muted"}>Delivered</span>
-      </div>
-    </div>
-  );
-};
+// --- ICONS ---
+const DashboardIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-speedometer2"
+    viewBox="0 0 16 16"
+  >
+    <path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 10a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 10zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 9.31a.91.91 0 1 0 1.302 1.258l3.434-4.297a.389.389 0 0 0-.029-.518z" />
+    <path
+      fillRule="evenodd"
+      d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A7.988 7.988 0 0 1 0 10zm8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.92C4.397 13.233 6.32 12 8 12s3.604 1.232 4.923 1.249c.757-.043 1.477-.344 1.68-.92A7 7 0 0 0 8 3z"
+    />
+  </svg>
+);
+const OrdersIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-box-seam"
+    viewBox="0 0 16 16"
+  >
+    <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5l2.404.961L10.404 2l-2.218-.887zm3.564 1.426L5.596 5 8 5.961 14.154 3.5l-2.404-.961zm3.25 1.7-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z" />
+  </svg>
+);
+const UserIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-person"
+    viewBox="0 0 16 16"
+  >
+    <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z" />
+  </svg>
+);
+const AddressIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-geo-alt"
+    viewBox="0 0 16 16"
+  >
+    <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z" />
+    <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+  </svg>
+);
+const LogoutIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-box-arrow-right"
+    viewBox="0 0 16 16"
+  >
+    <path
+      fillRule="evenodd"
+      d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 0h-8A1.5 1.5 0 0 0 0 1.5v9A1.5 1.5 0 0 0 1.5 12h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"
+    />
+    <path
+      fillRule="evenodd"
+      d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"
+    />
+  </svg>
+);
 
 const CustomerDashboard = () => {
-  const { adminInfo, logout } = useAuth();
-  const { wishlist } = useWishlist();
+  const { user, logout } = useAuth(); // Assuming 'user' holds customer data
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Mock loading for now
+
+  // --- Profile State ---
+  const [profileData, setProfileData] = useState({
+    name: user?.name || "",
+    email: user?.email || "",
+    age: user?.age || "", // New Age Field
+    phone: user?.phone || "",
+    currentPassword: "",
+    newPassword: "",
+  });
+
+  // --- Address State ---
+  const [addressData, setAddressData] = useState({
+    street: "123 Faith Avenue",
+    city: "Mumbai",
+    state: "Maharashtra",
+    zip: "400001",
+    country: "India",
+  });
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
 
   useEffect(() => {
-    const loadOrders = async () => {
-      try {
-        const data = await fetchMyOrdersApi();
-        setOrders(data);
-      } catch (e) {
-        console.error("Failed to load orders");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadOrders();
-  }, []);
+    // If you have a real backend endpoint for profile details, fetch here.
+    // For now, we sync with Auth Context or use mocks.
+    if (user) {
+      setProfileData((prev) => ({
+        ...prev,
+        name: user.name,
+        email: user.email,
+      }));
+    }
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("en-IN", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+    // Mock Fetch Orders
+    // const loadOrders = async () => { ... }
+    // loadOrders();
+    setOrders([
+      {
+        _id: "ORD-7782",
+        date: "2023-10-25",
+        total: 4500,
+        status: "Delivered",
+        items: 3,
+      },
+      {
+        _id: "ORD-9921",
+        date: "2023-11-02",
+        total: 1299,
+        status: "Processing",
+        items: 1,
+      },
+    ]);
+  }, [user]);
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login"); // Or wherever your login route is
   };
 
-  const fadeIn = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  const handleProfileUpdate = (e) => {
+    e.preventDefault();
+    alert("Profile updated successfully! (Logic to be connected to backend)");
+    // Call backend API to update user.age, user.name, etc.
   };
 
-  const userEmail = adminInfo?.email || "User";
-  const avatarUrl = `https://ui-avatars.com/api/?name=${userEmail}&background=0D6EFD&color=fff&size=128&rounded=true&bold=true`;
+  const handleAddressUpdate = (e) => {
+    e.preventDefault();
+    setIsEditingAddress(false);
+    alert("Address saved successfully!");
+  };
+
+  const handleTabChange = (tab) => setActiveTab(tab);
 
   return (
     <Container className="py-5">
-      {/* ... Header and Tabs structure (Sidebar) remain the same ... */}
-       <div className="d-flex justify-content-between align-items-end mb-5 border-bottom pb-3">
-        <div>
-          <h1 className="display-6 fw-bold text-dark">My Account</h1>
-          <p className="text-muted mb-0">Manage your orders and personal details</p>
-        </div>
-        <Button variant="outline-danger" size="sm" onClick={logout} className="d-flex align-items-center gap-2">
-          <SignOutIcon /> Sign Out
-        </Button>
+      <div className="mb-4">
+        <h2 className="fw-bold">My Account</h2>
+        <p className="text-muted">
+          Manage your profile, orders, and addresses.
+        </p>
       </div>
 
-      <Tab.Container id="dashboard-tabs" defaultActiveKey="orders">
-        <Row className="g-4">
-          <Col lg={3}>
-             {/* Sidebar Content Omitted for Brevity (Same as original) */}
-             <Card className="shadow-sm border-0 rounded-3 overflow-hidden">
-              <Card.Body className="p-0">
-                <div className="p-4 text-center bg-light border-bottom">
-                  <Image src={avatarUrl} roundedCircle width={80} height={80} className="mb-3 shadow-sm" />
-                  <h6 className="fw-bold mb-0 text-truncate">{userEmail}</h6>
-                  <small className="text-muted">Customer</small>
+      <Row>
+        {/* --- LEFT SIDEBAR NAVIGATION --- */}
+        <Col lg={3} className="mb-4">
+          <Card className="border-0 shadow-sm">
+            <Card.Body className="p-0">
+              <div className="p-4 text-center border-bottom bg-light">
+                <div
+                  className="mx-auto mb-3 d-flex align-items-center justify-content-center bg-dark text-white rounded-circle"
+                  style={{ width: "60px", height: "60px", fontSize: "24px" }}
+                >
+                  {profileData.name
+                    ? profileData.name.charAt(0).toUpperCase()
+                    : "U"}
                 </div>
-                <Nav variant="pills" className="flex-column p-2 gap-1">
-                  <Nav.Item><Nav.Link eventKey="orders" className="d-flex align-items-center py-3 px-3 fw-medium rounded-2"><BoxIcon /> <span className="ms-2">Your Orders</span></Nav.Link></Nav.Item>
-                  <Nav.Item><Nav.Link eventKey="wishlist" className="d-flex align-items-center py-3 px-3 fw-medium rounded-2"><HeartIcon /> <span className="ms-2">Wishlist</span></Nav.Link></Nav.Item>
-                  <Nav.Item><Nav.Link eventKey="profile" className="d-flex align-items-center py-3 px-3 fw-medium rounded-2"><UserIcon /> <span className="ms-2">Login & Security</span></Nav.Link></Nav.Item>
-                  <Nav.Item><Nav.Link eventKey="addresses" className="d-flex align-items-center py-3 px-3 fw-medium rounded-2"><MapIcon /> <span className="ms-2">Your Addresses</span></Nav.Link></Nav.Item>
-                </Nav>
-              </Card.Body>
-            </Card>
-          </Col>
+                <h6 className="fw-bold mb-0">{profileData.name}</h6>
+                <small className="text-muted">{profileData.email}</small>
+              </div>
+              <Nav variant="pills" className="flex-column p-2">
+                <Nav.Link
+                  active={activeTab === "dashboard"}
+                  onClick={() => handleTabChange("dashboard")}
+                  className={`d-flex align-items-center px-3 py-2 my-1 ${
+                    activeTab === "dashboard"
+                      ? "bg-dark text-white"
+                      : "text-dark"
+                  }`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="me-3">
+                    <DashboardIcon />
+                  </span>{" "}
+                  Dashboard
+                </Nav.Link>
+                <Nav.Link
+                  active={activeTab === "orders"}
+                  onClick={() => handleTabChange("orders")}
+                  className={`d-flex align-items-center px-3 py-2 my-1 ${
+                    activeTab === "orders" ? "bg-dark text-white" : "text-dark"
+                  }`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="me-3">
+                    <OrdersIcon />
+                  </span>{" "}
+                  My Orders
+                </Nav.Link>
+                <Nav.Link
+                  active={activeTab === "addresses"}
+                  onClick={() => handleTabChange("addresses")}
+                  className={`d-flex align-items-center px-3 py-2 my-1 ${
+                    activeTab === "addresses"
+                      ? "bg-dark text-white"
+                      : "text-dark"
+                  }`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="me-3">
+                    <AddressIcon />
+                  </span>{" "}
+                  Addresses
+                </Nav.Link>
+                <Nav.Link
+                  active={activeTab === "details"}
+                  onClick={() => handleTabChange("details")}
+                  className={`d-flex align-items-center px-3 py-2 my-1 ${
+                    activeTab === "details" ? "bg-dark text-white" : "text-dark"
+                  }`}
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="me-3">
+                    <UserIcon />
+                  </span>{" "}
+                  Account Details
+                </Nav.Link>
+                <Nav.Link
+                  onClick={handleLogout}
+                  className="d-flex align-items-center px-3 py-2 my-1 text-danger"
+                  style={{ cursor: "pointer" }}
+                >
+                  <span className="me-3">
+                    <LogoutIcon />
+                  </span>{" "}
+                  Logout
+                </Nav.Link>
+              </Nav>
+            </Card.Body>
+          </Card>
+        </Col>
 
-          <Col lg={9}>
-            <Tab.Content>
-              {/* --- ORDERS TAB --- */}
-              <Tab.Pane eventKey="orders">
-                <motion.div initial="hidden" animate="visible" variants={fadeIn}>
-                  <h4 className="fw-bold mb-4">Order History</h4>
-                  {loading ? (
-                    <div className="text-center py-5"><Spinner animation="border" variant="primary" /></div>
-                  ) : orders.length === 0 ? (
-                    <div className="alert alert-light border shadow-sm text-center py-5">
-                      <div className="mb-3 text-muted" style={{ fontSize: "3rem" }}>📦</div>
-                      <h5>No orders found</h5>
-                      <p className="text-muted">Looks like you haven't placed any orders yet.</p>
-                      <Button as={Link} to="/shop" variant="primary" className="mt-2">Start Shopping</Button>
-                    </div>
-                  ) : (
-                    <div className="d-flex flex-column gap-4">
-                      {orders.map((order) => (
-                        <Card key={order._id} className="shadow-sm border-0 rounded-3 overflow-hidden">
-                          {/* Card Header Omitted (Same as original) */}
-                           <div className="card-header bg-light bg-opacity-50 border-bottom d-flex flex-wrap justify-content-between align-items-center py-3 px-4">
-                            <div className="d-flex gap-4 text-muted small text-uppercase fw-bold">
-                              <div><span className="d-block text-secondary" style={{ fontSize: "0.7rem" }}>Order Placed</span><span className="text-dark">{formatDate(order.createdAt)}</span></div>
-                              <div><span className="d-block text-secondary" style={{ fontSize: "0.7rem" }}>Total</span><span className="text-dark">₹{(order.totalPrice / 100).toFixed(2)}</span></div>
-                            </div>
-                            <div className="text-end mt-2 mt-sm-0"><span className="d-block text-secondary small" style={{ fontSize: "0.7rem" }}>Order # {order._id.slice(-6).toUpperCase()}</span></div>
-                          </div>
+        {/* --- RIGHT CONTENT AREA --- */}
+        <Col lg={9}>
+          {/* 1. DASHBOARD OVERVIEW */}
+          {activeTab === "dashboard" && (
+            <div className="fade-in">
+              <Alert
+                variant="info"
+                className="border-0 shadow-sm text-dark bg-light"
+              >
+                Hello <strong>{profileData.name}</strong> (not{" "}
+                <strong>{profileData.name}</strong>?{" "}
+                <span
+                  className="text-primary text-decoration-underline"
+                  style={{ cursor: "pointer" }}
+                  onClick={handleLogout}
+                >
+                  Log out
+                </span>
+                ).
+                <br />
+                From your account dashboard you can view your{" "}
+                <span
+                  className="text-primary cursor-pointer"
+                  onClick={() => setActiveTab("orders")}
+                >
+                  recent orders
+                </span>
+                , manage your{" "}
+                <span
+                  className="text-primary cursor-pointer"
+                  onClick={() => setActiveTab("addresses")}
+                >
+                  shipping and billing addresses
+                </span>
+                , and edit your{" "}
+                <span
+                  className="text-primary cursor-pointer"
+                  onClick={() => setActiveTab("details")}
+                >
+                  password and account details
+                </span>
+                .
+              </Alert>
 
-                          <Card.Body className="p-4">
-                            <OrderTimeline status={order.orderStatus} />
-                            <hr className="my-3 text-muted opacity-25" />
-
-                            {order.orderItems.map((item, idx) => (
-                              <div key={idx} className="d-flex align-items-center mb-3 pb-3 border-bottom last:border-0">
-                                <Image
-                                  // --- FIX: Access 'image' (singular) for orders, handle fallback ---
-                                  src={item.image || (item.images ? item.images[0] : "/placeholder.jpg")}
-                                  rounded
-                                  className="border bg-white"
-                                  style={{ width: 80, height: 80, objectFit: "cover" }}
-                                />
-                                <div className="ms-3">
-                                  {/* --- FIX: Don't link custom items or items with missing product ID --- */}
-                                  {item.isCustom || !item.product ? (
-                                     <span className="fw-bold text-dark h6 d-block mb-1">
-                                        {item.isCustom ? "Custom Design" : item.name} {item.isCustom && <Badge bg="primary">Custom</Badge>}
-                                     </span>
-                                  ) : (
-                                      <Link to={`/product/${item.product}`} className="text-decoration-none fw-bold text-dark h6 d-block mb-1">
-                                        {item.name}
-                                      </Link>
-                                  )}
-                                  
-                                  <div className="text-muted small">
-                                    <span className="me-3">Size: <strong>{item.size}</strong></span>
-                                    <span>Qty: <strong>{item.qty}</strong></span>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </Card.Body>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </motion.div>
-              </Tab.Pane>
-              
-              {/* Other Tabs (Wishlist, Profile, Addresses) remain identical to the original file */}
-              <Tab.Pane eventKey="wishlist">
-                 {/* ... Content ... */}
-                 <motion.div initial="hidden" animate="visible" variants={fadeIn}>
-                  <h4 className="fw-bold mb-4">Your Wishlist ({wishlist.length})</h4>
-                  {wishlist.length === 0 ? (
-                    <div className="alert alert-light border shadow-sm text-center py-5">
-                      <h5>Your wishlist is empty</h5>
-                      <Button as={Link} to="/shop" variant="dark" className="mt-2">Explore Products</Button>
-                    </div>
-                  ) : (
-                    <Row xs={1} sm={2} md={3} className="g-4">
-                      {wishlist.map((product) => (<Col key={product._id}><ProductCard product={product} /></Col>))}
-                    </Row>
-                  )}
-                </motion.div>
-              </Tab.Pane>
-              <Tab.Pane eventKey="profile">
-                  {/* ... Content ... */}
-                   <motion.div initial="hidden" animate="visible" variants={fadeIn}>
-                  <h4 className="fw-bold mb-4">Login & Security</h4>
-                  <Card className="shadow-sm border-0 rounded-3">
-                    <Card.Body className="p-4">
-                      <Row className="mb-3 align-items-center border-bottom pb-3">
-                        <Col xs={8}><small className="fw-bold text-muted">Email:</small><div className="fs-5">{adminInfo?.email}</div></Col>
-                        <Col xs={4} className="text-end"><Button variant="outline-secondary" size="sm" disabled>Edit</Button></Col>
-                      </Row>
-                      <Row className="align-items-center">
-                        <Col xs={8}><small className="fw-bold text-muted">Password:</small><div className="fs-5">••••••••</div></Col>
-                        <Col xs={4} className="text-end"><Button variant="outline-secondary" size="sm" disabled>Edit</Button></Col>
-                      </Row>
+              <Row className="g-3 mt-2">
+                <Col md={4}>
+                  <Card className="border-0 shadow-sm h-100 text-center py-4 bg-white">
+                    <Card.Body>
+                      <div className="text-primary mb-2">
+                        <OrdersIcon />
+                      </div>
+                      <h3 className="fw-bold">{orders.length}</h3>
+                      <p className="text-muted mb-0">Total Orders</p>
                     </Card.Body>
                   </Card>
-                </motion.div>
-              </Tab.Pane>
-              <Tab.Pane eventKey="addresses">
-                 {/* ... Content ... */}
-                 <motion.div initial="hidden" animate="visible" variants={fadeIn}>
-                  <div className="d-flex justify-content-between align-items-center mb-4">
-                    <h4 className="fw-bold mb-0">Your Addresses</h4>
-                    <Button variant="primary" size="sm">+ Add New</Button>
+                </Col>
+                <Col md={4}>
+                  <Card className="border-0 shadow-sm h-100 text-center py-4 bg-white">
+                    <Card.Body>
+                      <div className="text-warning mb-2">
+                        <AddressIcon />
+                      </div>
+                      <h3 className="fw-bold">1</h3>
+                      <p className="text-muted mb-0">Saved Address</p>
+                    </Card.Body>
+                  </Card>
+                </Col>
+                <Col md={4}>
+                  <Card className="border-0 shadow-sm h-100 text-center py-4 bg-white">
+                    <Card.Body>
+                      <div className="text-success mb-2">
+                        <UserIcon />
+                      </div>
+                      <h3 className="fw-bold">Active</h3>
+                      <p className="text-muted mb-0">Account Status</p>
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          {/* 2. MY ORDERS */}
+          {activeTab === "orders" && (
+            <Card className="border-0 shadow-sm fade-in">
+              <Card.Header className="bg-white py-3">
+                <h5 className="mb-0 fw-bold">Order History</h5>
+              </Card.Header>
+              <Card.Body>
+                {orders.length > 0 ? (
+                  <Table responsive hover className="align-middle">
+                    <thead className="bg-light">
+                      <tr>
+                        <th>Order</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Total</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {orders.map((order) => (
+                        <tr key={order._id}>
+                          <td className="fw-bold text-primary">#{order._id}</td>
+                          <td>{order.date}</td>
+                          <td>
+                            <Badge
+                              bg={
+                                order.status === "Delivered"
+                                  ? "success"
+                                  : "warning"
+                              }
+                              className="fw-normal px-2 py-1"
+                            >
+                              {order.status}
+                            </Badge>
+                          </td>
+                          <td>
+                            ₹{order.total} for {order.items} item(s)
+                          </td>
+                          <td>
+                            <Button
+                              variant="outline-dark"
+                              size="sm"
+                              className="rounded-pill"
+                            >
+                              View
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Table>
+                ) : (
+                  <div className="text-center py-5">
+                    <p className="text-muted">No orders found.</p>
+                    <Button variant="dark" onClick={() => navigate("/shop")}>
+                      Go Shop
+                    </Button>
                   </div>
-                  <Row>
+                )}
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* 3. ADDRESSES */}
+          {activeTab === "addresses" && (
+            <div className="fade-in">
+              <p className="text-muted mb-4">
+                The following addresses will be used on the checkout page by
+                default.
+              </p>
+              <Row>
+                <Col md={6}>
+                  <Card className="border-0 shadow-sm h-100">
+                    <Card.Header className="bg-white py-3 d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0 fw-bold">Billing Address</h5>
+                      <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setIsEditingAddress(!isEditingAddress)}
+                      >
+                        {isEditingAddress ? "Cancel" : "Edit"}
+                      </Button>
+                    </Card.Header>
+                    <Card.Body>
+                      {isEditingAddress ? (
+                        <Form onSubmit={handleAddressUpdate}>
+                          <Form.Group className="mb-2">
+                            <Form.Label className="small">
+                              Street Address
+                            </Form.Label>
+                            <Form.Control
+                              type="text"
+                              value={addressData.street}
+                              onChange={(e) =>
+                                setAddressData({
+                                  ...addressData,
+                                  street: e.target.value,
+                                })
+                              }
+                            />
+                          </Form.Group>
+                          <Row>
+                            <Col xs={6}>
+                              <Form.Group className="mb-2">
+                                <Form.Label className="small">City</Form.Label>
+                                <Form.Control
+                                  type="text"
+                                  value={addressData.city}
+                                  onChange={(e) =>
+                                    setAddressData({
+                                      ...addressData,
+                                      city: e.target.value,
+                                    })
+                                  }
+                                />
+                              </Form.Group>
+                            </Col>
+                            <Col xs={6}>
+                              <Form.Group className="mb-2">
+                                <Form.Label className="small">
+                                  Zip Code
+                                </Form.Label>
+                                <Form.Control
+                                  type="text"
+                                  value={addressData.zip}
+                                  onChange={(e) =>
+                                    setAddressData({
+                                      ...addressData,
+                                      zip: e.target.value,
+                                    })
+                                  }
+                                />
+                              </Form.Group>
+                            </Col>
+                          </Row>
+                          <Button
+                            type="submit"
+                            variant="dark"
+                            size="sm"
+                            className="mt-2"
+                          >
+                            Save Address
+                          </Button>
+                        </Form>
+                      ) : (
+                        <address className="fst-normal text-muted">
+                          <strong>{profileData.name}</strong>
+                          <br />
+                          {addressData.street}
+                          <br />
+                          {addressData.city}, {addressData.zip}
+                          <br />
+                          {addressData.state}, {addressData.country}
+                        </address>
+                      )}
+                    </Card.Body>
+                  </Card>
+                </Col>
+              </Row>
+            </div>
+          )}
+
+          {/* 4. ACCOUNT DETAILS (Name, Age, Password) */}
+          {activeTab === "details" && (
+            <Card className="border-0 shadow-sm fade-in">
+              <Card.Header className="bg-white py-3">
+                <h5 className="mb-0 fw-bold">Account Details</h5>
+              </Card.Header>
+              <Card.Body>
+                <Form onSubmit={handleProfileUpdate}>
+                  <Row className="mb-3">
                     <Col md={6}>
-                      <Card className="shadow-sm border-0 h-100 dashed-border" style={{ borderStyle: "dashed", minHeight: "150px" }}>
-                        <Card.Body className="d-flex flex-column align-items-center justify-content-center text-muted">
-                          <MapIcon /><span className="mt-2">No addresses saved yet.</span>
-                        </Card.Body>
-                      </Card>
+                      <Form.Group controlId="formName">
+                        <Form.Label>Full Name</Form.Label>
+                        <Form.Control
+                          type="text"
+                          value={profileData.name}
+                          onChange={(e) =>
+                            setProfileData({
+                              ...profileData,
+                              name: e.target.value,
+                            })
+                          }
+                        />
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      {/* --- NEW: Age Field --- */}
+                      <Form.Group controlId="formAge">
+                        <Form.Label>Age</Form.Label>
+                        <Form.Control
+                          type="number"
+                          placeholder="e.g. 25"
+                          value={profileData.age}
+                          onChange={(e) =>
+                            setProfileData({
+                              ...profileData,
+                              age: e.target.value,
+                            })
+                          }
+                        />
+                      </Form.Group>
                     </Col>
                   </Row>
-                </motion.div>
-              </Tab.Pane>
-            </Tab.Content>
-          </Col>
-        </Row>
-      </Tab.Container>
+
+                  <Form.Group className="mb-3" controlId="formEmail">
+                    <Form.Label>Email Address</Form.Label>
+                    <Form.Control
+                      type="email"
+                      value={profileData.email}
+                      disabled
+                      className="bg-light"
+                    />
+                    <Form.Text className="text-muted">
+                      Email cannot be changed.
+                    </Form.Text>
+                  </Form.Group>
+
+                  <hr className="my-4" />
+                  <h6 className="fw-bold mb-3">Password Change</h6>
+
+                  <Form.Group className="mb-3" controlId="currentPass">
+                    <Form.Label>
+                      Current Password (leave blank to leave unchanged)
+                    </Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={profileData.currentPassword}
+                      onChange={(e) =>
+                        setProfileData({
+                          ...profileData,
+                          currentPassword: e.target.value,
+                        })
+                      }
+                    />
+                  </Form.Group>
+
+                  <Form.Group className="mb-3" controlId="newPass">
+                    <Form.Label>
+                      New Password (leave blank to leave unchanged)
+                    </Form.Label>
+                    <Form.Control
+                      type="password"
+                      value={profileData.newPassword}
+                      onChange={(e) =>
+                        setProfileData({
+                          ...profileData,
+                          newPassword: e.target.value,
+                        })
+                      }
+                    />
+                  </Form.Group>
+
+                  <Button variant="dark" type="submit" className="mt-2 px-4">
+                    Save Changes
+                  </Button>
+                </Form>
+              </Card.Body>
+            </Card>
+          )}
+        </Col>
+      </Row>
     </Container>
   );
 };

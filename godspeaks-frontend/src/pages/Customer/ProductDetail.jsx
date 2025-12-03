@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react"; // 1. Added useCallback
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   Container,
@@ -11,10 +11,18 @@ import {
   ButtonGroup,
   Form,
   ListGroup,
+  InputGroup,
 } from "react-bootstrap";
-import { fetchProductById, addProductReviewApi } from "../../api/productsApi";
+import {
+  fetchProductById,
+  addProductReviewApi,
+  joinWaitlistApi,
+  fetchRelatedProducts,
+} from "../../api/productsApi";
 import { useCart } from "../../context/CartContext";
 import { useAuth } from "../../context/AuthContext";
+import ProductCard from "../../components/Products/ProductCard";
+import SizeGuideModal from "../../components/Products/SizeGuideModal";
 
 // --- Icons ---
 const StarIcon = ({ filled }) => (
@@ -26,6 +34,32 @@ const StarIcon = ({ filled }) => (
     viewBox="0 0 16 16"
   >
     <path d="M3.612 15.443c-.396.198-.824-.149-.746-.592l.83-4.73L.173 6.765c-.329-.314-.158-.888.283-.95l4.898-.696L7.538.792c.197-.39.73-.39.927 0l2.184 4.327 4.898.696c.441.062.612.636.282.95l-3.522 3.356.83 4.73c.078.443-.35.79-.746.592L8 13.187l-4.389 2.256z" />
+  </svg>
+);
+
+const BellIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-bell-fill"
+    viewBox="0 0 16 16"
+  >
+    <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm.995-14.901a1 1 0 1 0-1.99 0A5.002 5.002 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z" />
+  </svg>
+);
+
+const RulerIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    fill="currentColor"
+    className="bi bi-ruler"
+    viewBox="0 0 16 16"
+  >
+    <path d="M1 8a7 7 0 1 1 14 0A7 7 0 0 1 1 8zm15 0A8 8 0 1 0 0 8a8 8 0 0 0 16 0zM2.5 8a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm2 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm2 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm2 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5zm2 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 0 1h-1a.5.5 0 0 1-.5-.5z" />
   </svg>
 );
 
@@ -42,13 +76,15 @@ const LoadingSpinner = () => (
   </div>
 );
 
-const MOCK_STOCK = [
-  { size: "S", count: 10 },
-  { size: "M", count: 15 },
-  { size: "L", count: 5 },
-  { size: "XL", count: 0 },
-  { size: "XXL", count: 8 },
-];
+// --- Color Map for Visual Hexagons ---
+const COLOR_MAP = {
+  White: "#FFFFFF",
+  Black: "#000000",
+  Navy: "#000080",
+  Red: "#DC143C",
+  "Heather Grey": "#B0B0B0",
+  "Royal Blue": "#4169E1",
+};
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -56,6 +92,7 @@ const ProductDetail = () => {
   const { adminInfo } = useAuth();
 
   const [product, setProduct] = useState(null);
+  const [relatedProducts, setRelatedProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -70,15 +107,29 @@ const ProductDetail = () => {
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewMessage, setReviewMessage] = useState(null);
 
-  // --- 2. Define fetch function with useCallback ---
-  // This creates a stable function reference that only changes when 'id' changes
+  // Notify Me State
+  const [email, setEmail] = useState("");
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState(null);
+
+  // Modal State
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
+
   const fetchProductData = useCallback(
     async (isRefresh = false) => {
       try {
-        if (!isRefresh) setIsLoading(true); // Only show spinner on initial load
+        if (!isRefresh) setIsLoading(true);
         setError(null);
-        const data = await fetchProductById(id);
-        setProduct({ ...data, stock: MOCK_STOCK });
+
+        const [productData, relatedData] = await Promise.all([
+          fetchProductById(id),
+          fetchRelatedProducts(id),
+        ]);
+
+        setProduct(productData);
+        setRelatedProducts(relatedData);
+
+        if (!isRefresh) window.scrollTo(0, 0);
       } catch (err) {
         setError("Product not found.");
       } finally {
@@ -88,7 +139,6 @@ const ProductDetail = () => {
     [id]
   );
 
-  // --- 3. Use the stable function in useEffect ---
   useEffect(() => {
     fetchProductData();
   }, [fetchProductData]);
@@ -101,8 +151,35 @@ const ProductDetail = () => {
       return;
     }
     addItemToCart(product, selectedSize, quantity);
-    setAddMessage("Added to cart!");
+
+    if (product.stockStatus === "pre-order") {
+      setAddMessage("Pre-Order Confirmed!");
+    } else {
+      setAddMessage("Added to cart!");
+    }
+
     setTimeout(() => setAddMessage(""), 2000);
+  };
+
+  const handleNotifyMe = async (e) => {
+    e.preventDefault();
+    if (!email) return;
+    setNotifyLoading(true);
+    try {
+      await joinWaitlistApi(id, email);
+      setNotifyMessage({
+        type: "success",
+        text: "You're on the list! We'll notify you.",
+      });
+      setEmail("");
+    } catch (err) {
+      setNotifyMessage({
+        type: "danger",
+        text: err.message || "Failed to join list.",
+      });
+    } finally {
+      setNotifyLoading(false);
+    }
   };
 
   const submitReviewHandler = async (e) => {
@@ -122,7 +199,6 @@ const ProductDetail = () => {
       });
       setComment("");
       setRating(5);
-      // --- 4. Reuse the fetch function to refresh data ---
       fetchProductData(true);
     } catch (err) {
       setReviewMessage({ type: "danger", text: "Failed to submit review" });
@@ -148,23 +224,51 @@ const ProductDetail = () => {
   if (!product) return null;
 
   const priceInRupees = (product.price / 100).toFixed(2);
+  const isOutOfStock = product.stockStatus === "out-of-stock";
+  const isPreOrder = product.stockStatus === "pre-order";
+  const productColorHex = COLOR_MAP[product.color] || "#000000"; // Fallback to black if unknown color
+
+  // Hexagon Style for Display Only
+  const hexagonStyle = {
+    width: "30px",
+    height: "35px",
+    clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+    backgroundColor: productColorHex,
+    border: "none",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+    display: "inline-block",
+    verticalAlign: "middle",
+  };
 
   return (
     <Container className="py-5">
       <Row className="g-5 mb-5">
-        {/* --- A. IMAGE GALLERY --- */}
         <Col lg={6}>
-          <Image
-            src={product.images[0]}
-            alt={product.name}
-            fluid
-            rounded
-            className="shadow-sm bg-white border"
-          />
+          <div className="position-relative">
+            <Image
+              src={product.images[0]}
+              alt={product.name}
+              fluid
+              rounded
+              className={`shadow-sm bg-white border ${
+                isOutOfStock ? "opacity-75" : ""
+              }`}
+            />
+            {isOutOfStock && (
+              <div className="position-absolute top-50 start-50 translate-middle bg-dark text-white px-4 py-2 rounded fw-bold opacity-100">
+                SOLD OUT
+              </div>
+            )}
+          </div>
         </Col>
 
-        {/* --- B. PRODUCT INFO --- */}
         <Col lg={6}>
+          {isPreOrder && (
+            <span className="badge bg-warning text-dark mb-2 px-3 py-2">
+              PRE-ORDER ITEM
+            </span>
+          )}
+
           <h1 className="display-4 fw-bold text-dark">{product.name}</h1>
           <p className="display-5 text-dark mt-2">₹{priceInRupees}</p>
 
@@ -181,87 +285,164 @@ const ProductDetail = () => {
 
           <p className="fs-5 text-muted mt-4">
             {product.description ||
-              "A high-quality, comfortable cotton tee perfect for expressing your faith. Inspired by the word of God."}
+              "A high-quality, comfortable cotton tee perfect for expressing your faith."}
           </p>
 
-          {/* --- C. OPTIONS (Size & Quantity) --- */}
           <div className="mt-4 border-top pt-4">
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-semibold fs-6 mb-2">
-                Select Size:
-              </Form.Label>
-              <div>
-                {product.stock.map((item) => (
-                  <Button
-                    key={item.size}
-                    onClick={() => setSelectedSize(item.size)}
-                    disabled={item.count === 0}
-                    variant={
-                      selectedSize === item.size ? "dark" : "outline-dark"
-                    }
-                    className="me-2 rounded-pill mb-2"
-                    style={{ minWidth: "60px" }}
-                  >
-                    {item.size}
-                  </Button>
-                ))}
-              </div>
-            </Form.Group>
-
-            <Form.Group className="mb-4">
-              <Form.Label className="fw-semibold fs-6 mb-2">
-                Quantity:
-              </Form.Label>
-              <ButtonGroup style={{ maxWidth: "150px" }}>
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                >
-                  -
-                </Button>
-                <Form.Control
-                  type="text"
-                  value={quantity}
-                  readOnly
-                  className="text-center fw-bold"
-                />
-                <Button
-                  variant="outline-secondary"
-                  onClick={() => setQuantity(quantity + 1)}
-                >
-                  +
-                </Button>
-              </ButtonGroup>
-            </Form.Group>
-
-            <div className="mt-4 d-flex align-items-center">
-              <Button
-                variant="dark"
-                size="lg"
-                onClick={handleAddToCart}
-                className="fw-bold"
-                style={{ minWidth: "200px" }}
-              >
-                Add to Cart
-              </Button>
-              {addMessage && (
-                <span
-                  className={`ms-3 fw-medium ${
-                    addMessage.includes("select")
-                      ? "text-danger"
-                      : "text-success"
-                  }`}
-                >
-                  {addMessage}
-                </span>
-              )}
+            {/* Display Color */}
+            <div className="mb-4">
+              <span className="fw-semibold fs-6 me-2">Color:</span>
+              <span className="d-inline-flex align-items-center border px-3 py-1 rounded bg-light">
+                <span style={hexagonStyle} className="me-2"></span>
+                {product.color}
+              </span>
             </div>
+
+            {isOutOfStock ? (
+              <div className="bg-light p-4 rounded border">
+                <h5 className="fw-bold d-flex align-items-center mb-3">
+                  <BellIcon />
+                  <span className="ms-2">Notify Me When Available</span>
+                </h5>
+                <p className="small text-muted mb-3">
+                  This item is currently out of stock. Enter your email below to
+                  be the first to know when it returns!
+                </p>
+                {notifyMessage && (
+                  <Alert variant={notifyMessage.type} className="py-2 small">
+                    {notifyMessage.text}
+                  </Alert>
+                )}
+                <Form onSubmit={handleNotifyMe}>
+                  <InputGroup>
+                    <Form.Control
+                      type="email"
+                      placeholder="Enter your email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                    <Button
+                      variant="dark"
+                      type="submit"
+                      disabled={notifyLoading}
+                    >
+                      {notifyLoading ? "Submitting..." : "Notify Me"}
+                    </Button>
+                  </InputGroup>
+                </Form>
+              </div>
+            ) : (
+              <>
+                {isPreOrder && product.preOrderReleaseDate && (
+                  <Alert variant="info" className="mb-4">
+                    <strong>Note:</strong> This is a pre-order item. Estimated
+                    shipping date:{" "}
+                    {new Date(product.preOrderReleaseDate).toLocaleDateString()}
+                    .
+                  </Alert>
+                )}
+
+                <Form.Group className="mb-4">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <Form.Label className="fw-semibold fs-6 mb-0">
+                      Select Size:
+                    </Form.Label>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-decoration-none p-0 d-flex align-items-center"
+                      onClick={() => setShowSizeGuide(true)}
+                    >
+                      <RulerIcon />
+                      <span className="ms-1">Size Guide</span>
+                    </Button>
+                  </div>
+
+                  <div className="d-flex flex-wrap gap-2">
+                    {product.sizes.map((size) => (
+                      <Button
+                        key={size}
+                        onClick={() => setSelectedSize(size)}
+                        variant={
+                          selectedSize === size ? "dark" : "outline-dark"
+                        }
+                        className="rounded-pill px-4"
+                        style={{ minWidth: "60px" }}
+                      >
+                        {size}
+                      </Button>
+                    ))}
+                  </div>
+                </Form.Group>
+
+                <Form.Group className="mb-4">
+                  <Form.Label className="fw-semibold fs-6 mb-2">
+                    Quantity:
+                  </Form.Label>
+                  <ButtonGroup style={{ maxWidth: "150px" }}>
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    >
+                      -
+                    </Button>
+                    <Form.Control
+                      type="text"
+                      value={quantity}
+                      readOnly
+                      className="text-center fw-bold"
+                    />
+                    <Button
+                      variant="outline-secondary"
+                      onClick={() => setQuantity(quantity + 1)}
+                    >
+                      +
+                    </Button>
+                  </ButtonGroup>
+                </Form.Group>
+
+                <div className="mt-4 d-flex align-items-center">
+                  <Button
+                    variant="dark"
+                    size="lg"
+                    onClick={handleAddToCart}
+                    className="fw-bold px-5"
+                  >
+                    {isPreOrder ? "Pre-Order Now" : "Add to Cart"}
+                  </Button>
+                  {addMessage && (
+                    <span
+                      className={`ms-3 fw-medium ${
+                        addMessage.includes("select")
+                          ? "text-danger"
+                          : "text-success"
+                      }`}
+                    >
+                      {addMessage}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </Col>
       </Row>
 
-      {/* --- D. REVIEWS SECTION --- */}
-      <Row className="mt-5">
+      {relatedProducts.length > 0 && (
+        <div className="mb-5 border-top pt-5">
+          <h3 className="fw-bold mb-4">You May Also Like</h3>
+          <Row xs={1} sm={2} md={4} className="g-4">
+            {relatedProducts.map((p) => (
+              <Col key={p._id}>
+                <ProductCard product={p} />
+              </Col>
+            ))}
+          </Row>
+        </div>
+      )}
+
+      <Row className="mt-5 border-top pt-5">
         <Col md={6}>
           <h3 className="fw-bold mb-4">Reviews</h3>
           {product.reviews.length === 0 && (
@@ -339,6 +520,11 @@ const ProductDetail = () => {
           </div>
         </Col>
       </Row>
+
+      <SizeGuideModal
+        show={showSizeGuide}
+        onHide={() => setShowSizeGuide(false)}
+      />
     </Container>
   );
 };
