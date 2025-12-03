@@ -1,37 +1,37 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-const { 
-    getProducts, 
-    getProductById, 
-    createProduct, 
-    updateProduct, 
-    deleteProduct,
-    createProductReview
-} = require('../controllers/productController');
+const {
+  getProducts,
+  getProductById,
+  getRelatedProducts, // Import new controller
+  createProduct,
+  updateProduct,
+  deleteProduct,
+  createProductReview,
+  joinWaitlist,
+} = require("../controllers/productController");
+const { protect, admin } = require("../middleware/authMiddleware");
+const upload = require("../middleware/upload");
 
-// Middleware
-const { protect, admin } = require('../middleware/authMiddleware');
-const upload = require('../middleware/upload'); // Multer config for file uploads
+// Public Routes
+router.route("/").get(getProducts);
+router.route("/:id").get(getProductById);
+router.route("/:id/related").get(getRelatedProducts); // New Route
+router.route("/:id/waitlist").post(joinWaitlist);
 
-// --- PUBLIC ROUTES ---
-router.route('/')
-    .get(getProducts);
+// Protected Routes (Reviews)
+router
+  .route("/:id/reviews")
+  .post(protect, upload.single("image"), createProductReview);
 
-router.route('/:id')
-    .get(getProductById);
+// Admin Routes
+router
+  .route("/")
+  .post(protect, admin, upload.array("images", 5), createProduct);
 
-// --- PROTECTED ROUTE (Customer Review) ---
-// Note: We use upload.single('image') because reviews only have 1 optional photo
-router.route('/:id/reviews')
-    .post(protect, upload.single('image'), createProductReview);
-
-// --- ADMIN ROUTES ---
-// Note: We use upload.array('images') because products can have multiple photos
-router.route('/')
-    .post(protect, admin, upload.array('images'), createProduct);
-
-router.route('/:id')
-    .put(protect, admin, upload.array('images'), updateProduct)
-    .delete(protect, admin, deleteProduct);
+router
+  .route("/:id")
+  .put(protect, admin, upload.array("images", 5), updateProduct)
+  .delete(protect, admin, deleteProduct);
 
 module.exports = router;

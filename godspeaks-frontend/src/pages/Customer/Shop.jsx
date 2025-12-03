@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Container, Row, Col, Spinner, Form, InputGroup, Button, Card } from "react-bootstrap";
+import { Container, Row, Col, Spinner, Form, InputGroup, Button, Card, Pagination } from "react-bootstrap";
 import ProductCard from "../../components/Products/ProductCard";
 import ProductFilter from "../../components/Products/ProductFilter";
 import { fetchAllProducts } from "../../api/productsApi";
@@ -28,6 +28,10 @@ const Shop = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
+  
+  // Pagination State
+  const [pages, setPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
 
   const [filters, setFilters] = useState({
     search: "",
@@ -35,6 +39,8 @@ const Shop = () => {
     size: [],
     maxPrice: 5000,
     sort: "newest",
+    minRating: 0,
+    page: 1, // Default page
   });
 
   useEffect(() => {
@@ -42,8 +48,17 @@ const Shop = () => {
       try {
         setIsLoading(true);
         setError(null);
+        // data contains: { products, page, pages, total }
         const data = await fetchAllProducts(filters);
-        setProducts(data);
+        
+        if (data.products) {
+            setProducts(data.products);
+            setPages(data.pages);
+            setTotalProducts(data.total);
+        } else {
+            // Fallback if API structure mismatches
+            setProducts(data); 
+        }
       } catch (err) {
         setError("Failed to fetch products. Ensure backend is running.");
       } finally {
@@ -54,9 +69,17 @@ const Shop = () => {
     return () => clearTimeout(timer);
   }, [filters]);
 
-  const handleFilterChange = (key, value) => { setFilters((prev) => ({ ...prev, [key]: value })); };
+  const handleFilterChange = (key, value) => { 
+      // Reset to page 1 when filtering changes (except when key IS 'page')
+      if (key !== 'page') {
+          setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
+      } else {
+          setFilters((prev) => ({ ...prev, [key]: value }));
+      }
+  };
+  
   const handleSearchChange = (e) => { handleFilterChange("search", e.target.value); };
-  const clearFilters = () => { setFilters({ search: "", category: [], size: [], maxPrice: 5000, sort: "newest", }); };
+  const clearFilters = () => { setFilters({ search: "", category: [], size: [], maxPrice: 5000, sort: "newest", minRating: 0, page: 1 }); };
 
   return (
     <Container className="py-5">
@@ -81,7 +104,6 @@ const Shop = () => {
         <Col lg={3} className={`mb-4 ${showMobileFilter ? "d-block" : "d-none d-lg-block"}`}>
           <ProductFilter filters={filters} onFilterChange={handleFilterChange} onClearFilters={clearFilters} />
           
-          {/* --- NEW: CUSTOM PRINT CTA SIDEBAR CARD --- */}
           <Card className="mt-4 border-0 shadow-sm bg-dark text-white text-center">
             <Card.Body>
                <h5 className="fw-bold">Have a unique idea?</h5>
@@ -93,11 +115,12 @@ const Shop = () => {
 
         <Col lg={9}>
           <div className="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
-            <span className="text-muted">{products.length} Products Found</span>
+            <span className="text-muted">{totalProducts} Products Found</span>
             <div className="d-flex align-items-center">
               <span className="me-2 text-muted small">Sort By:</span>
               <Form.Select size="sm" style={{ width: "150px" }} value={filters.sort} onChange={(e) => handleFilterChange("sort", e.target.value)}>
                 <option value="newest">Newest Arrivals</option>
+                <option value="top-rated">Top Rated</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
                 <option value="oldest">Oldest</option>
@@ -118,11 +141,38 @@ const Shop = () => {
                 <Button variant="link" className="mt-2" onClick={clearFilters}>Clear filters</Button>
               </div>
             ) : (
-              <motion.div layout>
-                <Row xs={1} sm={2} md={3} className="g-4">
-                  {products.map((product) => (<Col key={product._id}><ProductCard product={product} /></Col>))}
-                </Row>
-              </motion.div>
+              <>
+                  <motion.div layout>
+                    <Row xs={1} sm={2} md={3} className="g-4">
+                      {products.map((product) => (<Col key={product._id}><ProductCard product={product} /></Col>))}
+                    </Row>
+                  </motion.div>
+
+                  {/* --- NEW: PAGINATION UI --- */}
+                  {pages > 1 && (
+                      <div className="d-flex justify-content-center mt-5">
+                          <Pagination>
+                              <Pagination.Prev 
+                                  disabled={filters.page === 1}
+                                  onClick={() => handleFilterChange('page', filters.page - 1)}
+                              />
+                              {[...Array(pages)].map((_, idx) => (
+                                  <Pagination.Item 
+                                    key={idx + 1} 
+                                    active={idx + 1 === filters.page}
+                                    onClick={() => handleFilterChange('page', idx + 1)}
+                                  >
+                                    {idx + 1}
+                                  </Pagination.Item>
+                              ))}
+                              <Pagination.Next 
+                                  disabled={filters.page === pages}
+                                  onClick={() => handleFilterChange('page', filters.page + 1)}
+                              />
+                          </Pagination>
+                      </div>
+                  )}
+              </>
             )}
           </main>
         </Col>
