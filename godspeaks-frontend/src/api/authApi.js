@@ -1,5 +1,6 @@
-// UPDATED: Pointing to the new generic auth route
-const API_URL = "http://localhost:5000/api/auth";
+// --- FIXED: Use Environment Variable ---
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE_URL}/api/auth`;
 
 /**
  * Logs in the user (Admin or Customer).

@@ -42,18 +42,25 @@ const ProductSchema = new mongoose.Schema(
         required: true,
       },
     ],
-    // --- CHANGED: Replaced Category with Color ---
     color: {
       type: String,
       required: true,
-      default: "Black", // Default base color
+      default: "Black", 
     },
-    // --- CHANGED: Sizes is just a list of available options (No stock counts) ---
+    // --- POD SPECIFIC CHANGE ---
+    // We don't track numbers (0, 10, 20). 
+    // We only track IF we can print it (True/False).
     sizes: [
       {
-        type: String,
-        enum: ["S", "M", "L", "XL", "XXL", "3XL"],
-        required: true,
+        size: { 
+            type: String, 
+            enum: ["S", "M", "L", "XL", "XXL", "3XL"],
+            required: true 
+        },
+        available: { 
+            type: Boolean, 
+            default: true // Defaults to "Yes, we can print this"
+        }
       },
     ],
     reviews: [reviewSchema],
@@ -82,5 +89,4 @@ const ProductSchema = new mongoose.Schema(
 );
 
 const Product = mongoose.model("Product", ProductSchema);
-module.exports = Product;
-
+module.exports = Product; 

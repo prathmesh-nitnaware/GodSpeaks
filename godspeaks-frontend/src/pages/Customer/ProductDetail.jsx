@@ -12,6 +12,7 @@ import {
   Form,
   ListGroup,
   InputGroup,
+  Breadcrumb // Added Breadcrumb for better navigation
 } from "react-bootstrap";
 import {
   fetchProductById,
@@ -100,6 +101,7 @@ const ProductDetail = () => {
   const [selectedSize, setSelectedSize] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [addMessage, setAddMessage] = useState("");
+  const [mainImage, setMainImage] = useState(""); // Added for image switching
 
   // Review State
   const [rating, setRating] = useState(5);
@@ -128,6 +130,11 @@ const ProductDetail = () => {
 
         setProduct(productData);
         setRelatedProducts(relatedData);
+        
+        // Initialize main image
+        if (productData.images && productData.images.length > 0) {
+          setMainImage(productData.images[0]);
+        }
 
         if (!isRefresh) window.scrollTo(0, 0);
       } catch (err) {
@@ -226,7 +233,7 @@ const ProductDetail = () => {
   const priceInRupees = (product.price / 100).toFixed(2);
   const isOutOfStock = product.stockStatus === "out-of-stock";
   const isPreOrder = product.stockStatus === "pre-order";
-  const productColorHex = COLOR_MAP[product.color] || "#000000"; // Fallback to black if unknown color
+  const productColorHex = COLOR_MAP[product.color] || "#000000";
 
   // Hexagon Style for Display Only
   const hexagonStyle = {
@@ -242,17 +249,26 @@ const ProductDetail = () => {
 
   return (
     <Container className="py-5">
+      {/* Added Breadcrumb for Navigation */}
+      <Breadcrumb className="mb-4">
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/" }}>Home</Breadcrumb.Item>
+        <Breadcrumb.Item linkAs={Link} linkProps={{ to: "/shop" }}>Shop</Breadcrumb.Item>
+        <Breadcrumb.Item active>{product.name}</Breadcrumb.Item>
+      </Breadcrumb>
+
       <Row className="g-5 mb-5">
+        {/* --- LEFT: Images Section (Updated with Gallery) --- */}
         <Col lg={6}>
-          <div className="position-relative">
+          <div className="position-relative mb-3">
             <Image
-              src={product.images[0]}
+              src={mainImage || product.images[0]} // Use mainImage state
               alt={product.name}
               fluid
               rounded
               className={`shadow-sm bg-white border ${
                 isOutOfStock ? "opacity-75" : ""
               }`}
+              style={{ width: '100%', maxHeight: '600px', objectFit: 'cover' }}
             />
             {isOutOfStock && (
               <div className="position-absolute top-50 start-50 translate-middle bg-dark text-white px-4 py-2 rounded fw-bold opacity-100">
@@ -260,8 +276,28 @@ const ProductDetail = () => {
               </div>
             )}
           </div>
+          
+          {/* Thumbnail Gallery */}
+          <div className="d-flex gap-2 justify-content-center">
+            {product.images.map((img, idx) => (
+              <Image 
+                key={idx}
+                src={img}
+                thumbnail
+                style={{ 
+                  width: '80px', 
+                  height: '80px', 
+                  objectFit: 'cover', 
+                  cursor: 'pointer',
+                  borderColor: (mainImage || product.images[0]) === img ? '#000' : '#dee2e6' 
+                }}
+                onClick={() => setMainImage(img)}
+              />
+            ))}
+          </div>
         </Col>
 
+        {/* --- RIGHT: Product Details --- */}
         <Col lg={6}>
           {isPreOrder && (
             <span className="badge bg-warning text-dark mb-2 px-3 py-2">
@@ -359,21 +395,31 @@ const ProductDetail = () => {
                     </Button>
                   </div>
 
+                  {/* --- UPDATED: POD SIZE LOGIC --- */}
                   <div className="d-flex flex-wrap gap-2">
-                    {product.sizes.map((size) => (
-                      <Button
-                        key={size}
-                        onClick={() => setSelectedSize(size)}
-                        variant={
-                          selectedSize === size ? "dark" : "outline-dark"
-                        }
-                        className="rounded-pill px-4"
-                        style={{ minWidth: "60px" }}
-                      >
-                        {size}
-                      </Button>
-                    ))}
+                    {product.sizes.map((sizeObj, idx) => {
+                      // Check if it's an object (New POD Schema) or string (Old Schema fallback)
+                      const sizeName = typeof sizeObj === 'object' ? sizeObj.size : sizeObj;
+                      const isAvailable = typeof sizeObj === 'object' ? sizeObj.available : true;
+                      
+                      return (
+                        <Button
+                          key={idx}
+                          onClick={() => isAvailable && setSelectedSize(sizeName)}
+                          variant={
+                            selectedSize === sizeName ? "dark" : "outline-dark"
+                          }
+                          disabled={!isAvailable}
+                          className={`rounded-pill px-4 ${!isAvailable ? 'opacity-50 text-decoration-line-through' : ''}`}
+                          style={{ minWidth: "60px" }}
+                          title={!isAvailable ? "Size Currently Unavailable" : ""}
+                        >
+                          {sizeName}
+                        </Button>
+                      );
+                    })}
                   </div>
+                  {selectedSize && <Form.Text className="text-muted">Selected: <strong>{selectedSize}</strong></Form.Text>}
                 </Form.Group>
 
                 <Form.Group className="mb-4">
@@ -429,6 +475,7 @@ const ProductDetail = () => {
         </Col>
       </Row>
 
+      {/* --- RELATED PRODUCTS --- */}
       {relatedProducts.length > 0 && (
         <div className="mb-5 border-top pt-5">
           <h3 className="fw-bold mb-4">You May Also Like</h3>
@@ -442,6 +489,7 @@ const ProductDetail = () => {
         </div>
       )}
 
+      {/* --- REVIEWS SECTION --- */}
       <Row className="mt-5 border-top pt-5">
         <Col md={6}>
           <h3 className="fw-bold mb-4">Reviews</h3>

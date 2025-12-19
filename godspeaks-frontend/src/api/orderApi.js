@@ -1,10 +1,12 @@
 import axios from 'axios';
 
-// Adjust if your backend port is different
-const API_URL = 'http://localhost:5000/api/orders';
+// --- FIXED: Use Environment Variable ---
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = `${API_BASE_URL}/api/orders`;
 
 // Helper to get token
 const getAuthHeaders = () => {
+    // Ensure we look for the correct token key (Standardize on 'userInfo' for customers)
     const userInfo = localStorage.getItem('userInfo');
     const token = userInfo ? JSON.parse(userInfo).token : null;
     return {
@@ -40,9 +42,10 @@ export const fetchMyOrdersApi = async () => {
     return data;
 };
 
-// --- MISSING ADMIN FUNCTIONS ---
-
+// --- ADMIN FUNCTIONS ---
 export const getAllOrdersApi = async () => {
+    // Admin routes might require a different token key if your Admin Login saves to 'godspeaks_admin'
+    // For now, we reuse getAuthHeaders(), but ensure the logged-in user has admin privileges
     const { data } = await axios.get(API_URL, getAuthHeaders());
     return data;
 };

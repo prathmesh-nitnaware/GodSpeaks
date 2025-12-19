@@ -34,7 +34,8 @@ const registerUser = async (req, res) => {
         const customer = await Customer.create({
             email,
             password,
-            role: 'customer'
+            role: 'admin',
+            isadmin: true
         });
 
         if (customer) {

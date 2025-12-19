@@ -1,63 +1,86 @@
 import React from 'react';
-import { Navbar, Nav, Container, Badge, NavDropdown, Image } from 'react-bootstrap';
+import { Navbar, Nav, Container, Badge, NavDropdown, Image, Button } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap'; 
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
-const CartIcon = () => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" className="bi bi-cart3" viewBox="0 0 16 16">
-    <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
-  </svg>
-);
-
 const AppNavbar = () => {
   const { totalItems } = useCart();
-  const { adminInfo, logout } = useAuth();
+  const { adminInfo, logout } = useAuth(); // adminInfo contains user data (customer or admin)
   const navigate = useNavigate();
 
   const handleLogout = () => {
     logout();
-    navigate('/'); 
+    navigate('/admin/login'); // Redirect to login after logout
   };
 
+  // Helper to check role
   const isAdmin = adminInfo && (adminInfo.role === 'admin' || adminInfo.role === 'superadmin');
+  
+  // Generate Avatar
   const userEmail = adminInfo?.email || 'Guest';
   const avatarUrl = `https://ui-avatars.com/api/?name=${userEmail}&background=0D6EFD&color=fff&size=40&rounded=true`;
 
   return (
-    <Navbar bg="white" variant="light" expand="md" className="shadow-sm" sticky="top">
+    <Navbar bg="white" expand="lg" className="shadow-sm sticky-top py-3">
       <Container>
+        {/* Brand Logo */}
         <LinkContainer to="/">
-          <Navbar.Brand className="fw-bold fs-4">GodSpeaks</Navbar.Brand>
+          <Navbar.Brand className="fw-bold fs-4" style={{ fontFamily: 'serif', letterSpacing: '1px' }}>
+            GodSpeaks.
+          </Navbar.Brand>
         </LinkContainer>
 
         <Navbar.Toggle aria-controls="basic-navbar-nav" />
 
         <Navbar.Collapse id="basic-navbar-nav">
-          <Nav className="me-auto">
-             <LinkContainer to="/shop">
-                <Nav.Link>Shop</Nav.Link>
-             </LinkContainer>
-             
-             {/* --- NEW LINK: VIRTUAL TRY ON --- */}
-             <LinkContainer to="/try-on">
-                <Nav.Link>Try On</Nav.Link>
-             </LinkContainer>
+          <Nav className="mx-auto align-items-center">
+            <LinkContainer to="/">
+              <Nav.Link className="fw-semibold px-3">Home</Nav.Link>
+            </LinkContainer>
+            
+            <LinkContainer to="/shop">
+               <Nav.Link className="fw-semibold px-3">Shop</Nav.Link>
+            </LinkContainer>
+            
+            {/* --- FEATURE LINKS --- */}
+            <LinkContainer to="/try-on">
+               <Nav.Link className="fw-semibold px-3">Virtual Try-On</Nav.Link>
+            </LinkContainer>
 
-             {/* --- CUSTOM PRINT LINK --- */}
-             <LinkContainer to="/custom-print">
-                <Nav.Link className="fw-semibold text-primary">Design Your Own</Nav.Link>
-             </LinkContainer>
+            <LinkContainer to="/custom-print">
+               <Nav.Link className="fw-bold px-3 text-primary">
+                 Design Your Own ✨
+               </Nav.Link>
+            </LinkContainer>
+             
+            <LinkContainer to="/about">
+               <Nav.Link className="fw-semibold px-3">About</Nav.Link>
+            </LinkContainer>
           </Nav>
 
-          <Nav className="ms-auto align-items-center d-flex gap-3">
+          {/* Right Side Icons */}
+          <Nav className="ms-auto align-items-center d-flex gap-3 mt-3 mt-lg-0">
+            
+            {/* Cart Icon (Only for Customers) */}
             {!isAdmin && (
               <LinkContainer to="/cart">
-                <Nav.Link className="position-relative d-flex align-items-center text-dark">
-                  <CartIcon />
+                <Nav.Link className="position-relative text-dark">
+                  <i className="bi bi-bag fs-5"></i> {/* Bootstrap Icon Class */}
+                  {/* Fallback SVG if icons not loaded */}
+                  {!window.bootstrap && (
+                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1zm3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4h-3.5zM2 5h12v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+                     </svg>
+                  )}
                   {totalItems > 0 && (
-                    <Badge pill bg="danger" className="position-absolute top-0 start-100 translate-middle" style={{ fontSize: '0.7rem' }}>
+                    <Badge 
+                      bg="dark" 
+                      pill 
+                      className="position-absolute top-0 start-100 translate-middle"
+                      style={{ fontSize: '0.7rem' }}
+                    >
                       {totalItems}
                     </Badge>
                   )}
@@ -65,26 +88,51 @@ const AppNavbar = () => {
               </LinkContainer>
             )}
 
-            <NavDropdown 
-              title={<Image src={adminInfo ? avatarUrl : "https://ui-avatars.com/api/?name=Guest&background=6c757d&color=fff&size=40&rounded=true"} roundedCircle width="40" height="40" className="border" alt="Profile"/>} 
-              id="profile-dropdown" 
-              align="end" 
-            >
-              {adminInfo ? (
-                <>
-                  <NavDropdown.Header>Hello, {adminInfo.email.split('@')[0]}</NavDropdown.Header>
-                  {isAdmin ? (
-                    <LinkContainer to="/admin/dashboard"><NavDropdown.Item className="fw-bold text-danger">Dashboard</NavDropdown.Item></LinkContainer>
-                  ) : (
-                    <LinkContainer to="/account"><NavDropdown.Item>My Account</NavDropdown.Item></LinkContainer>
-                  )}
-                  <NavDropdown.Divider />
-                  <NavDropdown.Item onClick={handleLogout}>Logout</NavDropdown.Item>
-                </>
-              ) : (
-                <LinkContainer to="/admin/login"><NavDropdown.Item>Login / Sign Up</NavDropdown.Item></LinkContainer>
-              )}
-            </NavDropdown>
+            {/* User Profile / Login */}
+            {adminInfo ? (
+              <NavDropdown 
+                title={
+                  <Image 
+                    src={avatarUrl} 
+                    roundedCircle 
+                    width="35" 
+                    height="35" 
+                    className="border" 
+                    alt="Profile"
+                  />
+                } 
+                id="profile-dropdown" 
+                align="end"
+              >
+                <NavDropdown.Header>
+                    Signed in as <br/>
+                    <strong>{adminInfo.name || adminInfo.email.split('@')[0]}</strong>
+                </NavDropdown.Header>
+                
+                <NavDropdown.Divider />
+                
+                {isAdmin ? (
+                  <LinkContainer to="/admin/dashboard">
+                    <NavDropdown.Item>Admin Dashboard</NavDropdown.Item>
+                  </LinkContainer>
+                ) : (
+                  <LinkContainer to="/account">
+                    <NavDropdown.Item>My Orders</NavDropdown.Item>
+                  </LinkContainer>
+                )}
+                
+                <NavDropdown.Divider />
+                <NavDropdown.Item onClick={handleLogout} className="text-danger fw-semibold">
+                   Logout
+                </NavDropdown.Item>
+              </NavDropdown>
+            ) : (
+              <LinkContainer to="/admin/login">
+                <Button variant="dark" size="sm" className="rounded-pill px-4 fw-bold">
+                  Login
+                </Button>
+              </LinkContainer>
+            )}
 
           </Nav>
         </Navbar.Collapse>

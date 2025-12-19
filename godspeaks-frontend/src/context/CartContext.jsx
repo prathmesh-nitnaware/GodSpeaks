@@ -20,7 +20,8 @@ const cartReducer = (state, action) => {
   
   switch (action.type) {
     case ACTIONS.ADD_ITEM: {
-      const { product, size, qty, isCustom, customPrintUrl } = action.payload;
+      // --- UPDATED: Destructure printFileUrl ---
+      const { product, size, qty, isCustom, customPrintUrl, printFileUrl } = action.payload;
       
       // Generate ID:
       // If Custom: use timestamp to make every custom design unique
@@ -42,7 +43,9 @@ const cartReducer = (state, action) => {
           size,
           qty,
           isCustom: isCustom || false,
-          customPrintUrl: customPrintUrl || null
+          customPrintUrl: customPrintUrl || null,
+          // --- UPDATED: Store the high-res print file ---
+          printFileUrl: printFileUrl || null 
         };
         newCart = [...state.cart, newItem];
       }
@@ -111,13 +114,12 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  // --- NEW: Sync Cart with Backend (Abandoned Cart Recovery) ---
+  // --- Sync Cart with Backend (Abandoned Cart Recovery) ---
   useEffect(() => {
     // Only sync if user is logged in (has token) AND cart has items
     if (adminInfo?.token && state.cart.length > 0) {
         const syncCart = async () => {
             try {
-                // Adjust URL if your backend port is different
                 await axios.post(
                     'http://localhost:5000/api/cart/sync', 
                     { items: state.cart }, 
@@ -128,7 +130,7 @@ export const CartProvider = ({ children }) => {
             }
         };
 
-        // Debounce: Wait 2 seconds after last change before syncing to avoid spamming API
+        // Debounce: Wait 2 seconds after last change before syncing
         const timeoutId = setTimeout(() => {
             syncCart();
         }, 2000);
@@ -138,8 +140,13 @@ export const CartProvider = ({ children }) => {
   }, [state.cart, adminInfo]);
 
   // --- 6. Action Functions ---
-  const addItemToCart = (product, size, qty = 1, isCustom = false, customPrintUrl = null) => {
-    dispatch({ type: ACTIONS.ADD_ITEM, payload: { product, size, qty, isCustom, customPrintUrl } });
+  
+  // --- UPDATED: Added printFileUrl as an argument (defaults to null) ---
+  const addItemToCart = (product, size, qty = 1, isCustom = false, customPrintUrl = null, printFileUrl = null) => {
+    dispatch({ 
+        type: ACTIONS.ADD_ITEM, 
+        payload: { product, size, qty, isCustom, customPrintUrl, printFileUrl } 
+    });
   };
 
   const removeItemFromCart = (cartItemId) => {

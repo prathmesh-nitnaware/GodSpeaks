@@ -5,7 +5,7 @@ const OrderItemSchema = new mongoose.Schema({
     name: { type: String, required: true },
     qty: { type: Number, required: true },
     size: { type: String, required: true },
-    image: { type: String, required: true }, // The product image OR custom artwork
+    image: { type: String, required: true }, // Display Thumbnail (Web Optimized)
     price: { type: Number, required: true }, 
     // Link to product is optional for Custom Prints
     product: {
@@ -15,7 +15,8 @@ const OrderItemSchema = new mongoose.Schema({
     },
     // New field for custom design
     isCustom: { type: Boolean, default: false },
-    customPrintUrl: { type: String }, 
+    // --- UPDATED: Explicitly store the High-Res Print File URL ---
+    printFileUrl: { type: String }, 
 });
 
 // --- MAIN ORDER SCHEMA ---
