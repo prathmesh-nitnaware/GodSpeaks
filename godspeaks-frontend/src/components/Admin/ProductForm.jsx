@@ -2,10 +2,6 @@ import React, { useState } from 'react';
 import { createProductApi } from '../../api/adminApi';
 import { Form, Button, Row, Col, Spinner, Alert, InputGroup } from 'react-bootstrap';
 
-const LoadingSpinner = () => (
-  <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-);
-
 const ALL_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
 const ProductForm = ({ onProductCreated }) => {
@@ -13,12 +9,10 @@ const ProductForm = ({ onProductCreated }) => {
     name: '',
     description: '',
     price: '',
-    color: '#000000', // Default color for the picker
+    color: '#000000', // Default Hex for the picker
   });
   
-  // Array of selected sizes for the POD logic
   const [selectedSizes, setSelectedSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']); 
-  
   const [images, setImages] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -46,40 +40,23 @@ const ProductForm = ({ onProductCreated }) => {
     setError(null);
     setSuccess(null);
 
-    if (selectedSizes.length === 0 || !images || images.length === 0) {
-      setError('Please select at least one size and upload one image.');
-      setIsLoading(false);
-      return;
-    }
-
     const data = new FormData();
     data.append('name', formData.name);
     data.append('description', formData.description);
     data.append('price', formData.price);
-    data.append('color', formData.color);
-    
-    // Send sizes as a comma-separated string for the backend to transform
+    data.append('color', formData.color); // Saves the unlimited color selection
     data.append('sizes', selectedSizes.join(','));
 
-    for (let i = 0; i < images.length; i++) {
-      data.append('images', images[i]);
+    if (images) {
+      for (let i = 0; i < images.length; i++) {
+        data.append('images', images[i]);
+      }
     }
 
     try {
       const newProduct = await createProductApi(data);
       setSuccess(`Product "${newProduct.name}" created successfully!`);
-      
-      // Reset form
-      setFormData({ name: '', description: '', price: '', color: '#000000' });
-      setSelectedSizes(['S', 'M', 'L', 'XL', 'XXL']);
-      setImages(null);
-      if(document.getElementById('images')) {
-        document.getElementById('images').value = null; 
-      }
-      
-      if (onProductCreated) {
-        onProductCreated(newProduct);
-      }
+      if (onProductCreated) onProductCreated(newProduct);
     } catch (err) {
       setError(err.message || 'Failed to create product.');
     } finally {
@@ -88,111 +65,70 @@ const ProductForm = ({ onProductCreated }) => {
   };
 
   return (
-    <Form onSubmit={handleSubmit}>
-      <Form.Group className="mb-3" controlId="name">
-        <Form.Label>Product Name</Form.Label>
-        <Form.Control
-          type="text"
-          name="name"
-          value={formData.name}
-          onChange={handleTextChange}
-          required
-        />
-      </Form.Group>
-
-      <Form.Group className="mb-3" controlId="description">
-        <Form.Label>Description</Form.Label>
-        <Form.Control
-          as="textarea"
-          name="description"
-          rows={3}
-          value={formData.description}
-          onChange={handleTextChange}
-          required
-        />
+    <Form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-sm border">
+      <h4 className="mb-4 fw-bold">Add New Product</h4>
+      
+      <Form.Group className="mb-3">
+        <Form.Label className="fw-bold">Product Name</Form.Label>
+        <Form.Control type="text" name="name" value={formData.name} onChange={handleTextChange} required />
       </Form.Group>
 
       <Row className="mb-3">
-        <Form.Group as={Col} md="6" controlId="price">
-          <Form.Label>Price (in ₹)</Form.Label>
-          <InputGroup>
-            <InputGroup.Text>₹</InputGroup.Text>
-            <Form.Control
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleTextChange}
-              placeholder="e.g., 799"
-              required
-            />
-          </InputGroup>
+        <Form.Group as={Col} md="6">
+          <Form.Label className="fw-bold">Price (₹)</Form.Label>
+          <Form.Control type="number" name="price" value={formData.price} onChange={handleTextChange} required />
         </Form.Group>
         
-        {/* --- DUAL COLOR INPUT --- */}
-        <Form.Group as={Col} md="6" controlId="color">
-          <Form.Label>Product Color</Form.Label>
+        {/* --- UNLIMITED COLOR PICKER FOR ADMIN --- */}
+        <Form.Group as={Col} md="6">
+          <Form.Label className="fw-bold">Fabric Color (Unlimited)</Form.Label>
           <div className="d-flex gap-2">
              <Form.Control
                 type="color"
                 name="color"
                 value={formData.color}
                 onChange={handleTextChange}
-                style={{ width: '50px', height: '38px', padding: '2px' }}
-                title="Choose custom color"
+                style={{ width: '60px', height: '38px', padding: '2px', cursor: 'pointer' }}
               />
               <Form.Control
                 type="text"
                 name="color"
                 value={formData.color}
                 onChange={handleTextChange}
-                placeholder="#000000"
+                placeholder="#hex or color name"
                 required
               />
           </div>
-          <Form.Text className="text-muted">Pick a color or enter a hex code.</Form.Text>
+          <Form.Text className="text-muted">Pick any color to match your fabric inventory.</Form.Text>
         </Form.Group>
       </Row>
 
-      <Form.Group className="mb-3" controlId="images">
-        <Form.Label>Product Images</Form.Label>
-        <Form.Control
-          type="file"
-          name="images"
-          onChange={handleFileChange}
-          multiple
-          accept="image/*"
-        />
-      </Form.Group>
-
-      <Form.Group className="mb-4">
-        <Form.Label className="fw-semibold d-block">Available Sizes (POD)</Form.Label>
-        <div className="d-flex flex-wrap gap-3">
-          {ALL_SIZES.map((size) => (
-            <Form.Check
-              key={size}
-              type="checkbox"
-              id={`size-${size}`}
-              label={size}
-              checked={selectedSizes.includes(size)}
-              onChange={() => handleSizeToggle(size)}
+      <Form.Group className="mb-3">
+        <Form.Label className="fw-bold">Available Sizes</Form.Label>
+        <div className="d-flex gap-3 flex-wrap">
+          {ALL_SIZES.map(size => (
+            <Form.Check 
+              key={size} 
+              type="checkbox" 
+              label={size} 
+              checked={selectedSizes.includes(size)} 
+              onChange={() => handleSizeToggle(size)} 
             />
           ))}
         </div>
       </Form.Group>
 
-      <div className="mt-4">
-        {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{success}</Alert>}
-        <Button
-          type="submit"
-          variant="dark"
-          size="lg"
-          className="w-100 fw-semibold"
-          disabled={isLoading}
-        >
-          {isLoading ? <LoadingSpinner /> : 'Create Product'}
-        </Button>
-      </div>
+      <Form.Group className="mb-4">
+        <Form.Label className="fw-bold">Upload Images</Form.Label>
+        <Form.Control type="file" multiple onChange={handleFileChange} accept="image/*" />
+      </Form.Group>
+
+      {error && <Alert variant="danger">{error}</Alert>}
+      {success && <Alert variant="success">{success}</Alert>}
+
+      <Button type="submit" variant="dark" className="w-100 fw-bold py-2" disabled={isLoading}>
+        {isLoading ? <Spinner animation="border" size="sm" /> : 'Create Product'}
+      </Button>
     </Form>
   );
 };
