@@ -1,5 +1,6 @@
 // --- CONFIGURATION ---
-const API_BASE_URL = "http://localhost:5000/api/products";
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const PRODUCTS_URL = `${API_BASE_URL}/api/products`;
 
 // --- HELPER: Handle API Response ---
 const handleResponse = async (response) => {
@@ -29,7 +30,7 @@ export const fetchAllProducts = async (filters = {}) => {
     if (filters.page) queryParams.append("pageNumber", filters.page);
     if (filters.sort) queryParams.append("sort", filters.sort);
 
-    const url = `${API_BASE_URL}?${queryParams.toString()}`;
+    const url = `${PRODUCTS_URL}?${queryParams.toString()}`;
     const response = await fetch(url);
     const data = await handleResponse(response);
 
@@ -42,7 +43,7 @@ export const fetchAllProducts = async (filters = {}) => {
 
 export const fetchProductById = async (id) => {
   try {
-    const url = `${API_BASE_URL}/${id}`;
+    const url = `${PRODUCTS_URL}/${id}`;
     const response = await fetch(url);
     return await handleResponse(response);
   } catch (error) {
@@ -56,18 +57,18 @@ export const fetchProductById = async (id) => {
  */
 export const fetchRelatedProducts = async (id) => {
   try {
-    const url = `${API_BASE_URL}/${id}/related`;
+    const url = `${PRODUCTS_URL}/${id}/related`;
     const response = await fetch(url);
     return await handleResponse(response);
   } catch (error) {
     console.error("Error fetching related products:", error);
-    return []; // Return empty array on error to prevent crash
+    return []; 
   }
 };
 
 export const joinWaitlistApi = async (id, email) => {
   try {
-    const url = `${API_BASE_URL}/${id}/waitlist`;
+    const url = `${PRODUCTS_URL}/${id}/waitlist`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -82,12 +83,22 @@ export const joinWaitlistApi = async (id, email) => {
 
 export const addProductReviewApi = async (productId, reviewData) => {
   try {
-    const userInfo = JSON.parse(localStorage.getItem("godspeaks_admin"));
-    const token = userInfo?.token;
+    // --- FIX: Use 'userInfo' for customers, fall back to 'godspeaks_admin' if needed ---
+    const customerInfo = JSON.parse(localStorage.getItem("userInfo"));
+    const adminInfo = JSON.parse(localStorage.getItem("godspeaks_admin"));
+    
+    // Prefer customer token for reviews
+    const token = customerInfo?.token || adminInfo?.token;
 
-    const url = `${API_BASE_URL}/${productId}/reviews`;
+    const url = `${PRODUCTS_URL}/${productId}/reviews`;
 
     const headers = {};
+    // If you are sending JSON data, ensure Content-Type is set. 
+    // If reviewData is FormData (image upload), do NOT set Content-Type manually.
+    if (!(reviewData instanceof FormData)) {
+        headers["Content-Type"] = "application/json";
+    }
+    
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
     const response = await fetch(url, {

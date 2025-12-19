@@ -1,14 +1,17 @@
 import axios from 'axios';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = 'http://localhost:5000/api/products';
-const ANALYTICS_URL = 'http://localhost:5000/api/analytics';
+// Use the environment variable we set up earlier
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const PRODUCT_URL = `${API_BASE_URL}/api/products`;
+const ANALYTICS_URL = `${API_BASE_URL}/api/analytics`;
 
 // --- HELPER: Get Auth Header ---
-// Retrieves the token from local storage and formats it for the Authorization header
 const getAuthHeaders = () => {
-  const userInfo = localStorage.getItem('userInfo'); // Or 'godspeaks_admin' depending on what you used in AuthContext
-  const token = userInfo ? JSON.parse(userInfo).token : null;
+  // --- FIX: Look for 'godspeaks_admin', NOT 'userInfo' ---
+  const adminInfo = localStorage.getItem('godspeaks_admin');
+  const token = adminInfo ? JSON.parse(adminInfo).token : null;
+  
   return {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -22,28 +25,25 @@ const getAuthHeaders = () => {
 
 // 1. Create Product (Expects FormData)
 export const createProductApi = async (productData) => {
-  const { data } = await axios.post(API_BASE_URL, productData, getAuthHeaders());
+  const { data } = await axios.post(PRODUCT_URL, productData, getAuthHeaders());
   return data;
 };
 
 // 2. Update Product (Expects FormData)
 export const updateProductApi = async (id, productData) => {
-  const { data } = await axios.put(`${API_BASE_URL}/${id}`, productData, getAuthHeaders());
+  const { data } = await axios.put(`${PRODUCT_URL}/${id}`, productData, getAuthHeaders());
   return data;
 };
 
 // 3. Delete Product
 export const deleteProductApi = async (id) => {
-  const { data } = await axios.delete(`${API_BASE_URL}/${id}`, getAuthHeaders());
+  const { data } = await axios.delete(`${PRODUCT_URL}/${id}`, getAuthHeaders());
   return data;
 };
 
 // 4. Fetch All Products (Admin View)
-// This might be the same as the public view, but we define it here for clarity
-// in case you add admin-specific fields later (like hidden products).
 export const fetchAllProductsAdmin = async () => {
-  const { data } = await axios.get(API_BASE_URL); 
-  // Handle case where backend returns { products: [...] } or just [...]
+  const { data } = await axios.get(PRODUCT_URL); 
   return data.products || data;
 };
 

@@ -79,6 +79,7 @@ const CustomPrint = () => {
       const formData = new FormData();
       formData.append("image", file);
 
+      // Uploading high-res file
       const { data } = await axios.post(
         "http://localhost:5000/api/upload",
         formData,
@@ -87,19 +88,24 @@ const CustomPrint = () => {
         }
       );
 
-      const customUrl = data.url;
+      const highResPrintUrl = data.url;
 
       const customProduct = {
         _id: "custom-print-item",
         name: `Custom Design T-Shirt (${selectedColor.name})`,
         price: CUSTOM_PRICE,
-        images: [customUrl],
+        // Using highResUrl for display for now, but separating variables allows
+        // you to generate a separate thumbnail later if needed.
+        images: [highResPrintUrl], 
         category: "Custom",
         isCustom: true,
         color: selectedColor.name,
       };
 
-      addItemToCart(customProduct, size, quantity, true, customUrl);
+      // --- UPDATED: Pass highResPrintUrl as BOTH customPrintUrl (display) AND printFileUrl (print)
+      // Arguments: product, size, qty, isCustom, customPrintUrl, printFileUrl
+      addItemToCart(customProduct, size, quantity, true, highResPrintUrl, highResPrintUrl);
+      
       navigate("/cart");
     } catch (err) {
       console.error(err);

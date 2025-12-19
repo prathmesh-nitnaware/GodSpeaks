@@ -4,6 +4,15 @@ import { useCart } from '../../context/CartContext';
 import { loadScript, createOrderApi, verifyPaymentApi } from '../../api/orderApi'; 
 import { Container, Row, Col, Form, Button, Card, ListGroup, Image, Spinner, Alert } from 'react-bootstrap';
 
+// Standard list for Courier Address
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh", "Goa", "Gujarat", 
+  "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka", "Kerala", "Madhya Pradesh", 
+  "Maharashtra", "Manipur", "Meghalaya", "Mizoram", "Nagaland", "Odisha", "Punjab", 
+  "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura", "Uttar Pradesh", 
+  "Uttarakhand", "West Bengal", "Delhi", "Chandigarh", "Puducherry", "Jammu and Kashmir", "Ladakh"
+];
+
 const LoadingOverlay = () => (
   <div 
     className="position-absolute w-100 h-100 d-flex justify-content-center align-items-center"
@@ -28,7 +37,7 @@ const Checkout = () => {
     phone: '',
     address: '',
     city: '',
-    state: 'Maharashtra',
+    state: '', // User MUST select their state
     postalCode: '',
   });
   
@@ -56,19 +65,16 @@ const Checkout = () => {
     }
 
     try {
-      // --- MAP CART ITEMS TO BACKEND SCHEMA ---
-      // Backend expects: { product: ID, image: String, isCustom: Bool, ... }
-      // Cart has: { _id: ID, images: [String], isCustom: Bool, ... }
       const formattedOrderItems = cart.map(item => ({
         name: item.name,
         qty: item.qty,
         size: item.size,
-        // Use the custom URL or the first product image
         image: item.isCustom ? (item.customPrintUrl || item.images[0]) : item.images[0], 
         price: item.price,
-        product: item._id, // Map _id to product
+        product: item._id, 
         isCustom: item.isCustom || false,
-        customPrintUrl: item.customPrintUrl || null
+        customPrintUrl: item.customPrintUrl || null,
+        printFileUrl: item.printFileUrl || null // CRITICAL for POD
       }));
 
       const orderData = {
@@ -118,13 +124,11 @@ const Checkout = () => {
         },
         modal: {
           ondismiss: () => {
-            console.log('Checkout modal dismissed');
             setIsLoading(false);
           }
         }
       };
 
-      setIsLoading(false);
       const paymentObject = new window.Razorpay(options);
       paymentObject.open();
 
@@ -153,22 +157,21 @@ const Checkout = () => {
         </Alert>
       ) : (
         <Row className="gy-5">
-          {/* --- 1. Shipping Form --- */}
+          {/* --- Shipping Form --- */}
           <Col lg={7}>
             <Card className="shadow-sm border-0">
               <Card.Body className="p-4 p-md-5">
                 <Card.Title as="h3" className="fw-bold fs-4 mb-4">
-                  Shipping Information
+                  Courier Details
                 </Card.Title>
                 
                 <Form noValidate validated={validated} onSubmit={handlePayment}>
-                  {/* ... Form fields remain same as original ... */}
                   <Row className="g-3">
                     <Col sm={6}>
                       <Form.Group controlId="name">
                         <Form.Label>Full Name</Form.Label>
                         <Form.Control type="text" name="name" value={formData.name} onChange={handleChange} required />
-                        <Form.Control.Feedback type="invalid">Please enter your name.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">Please enter name for courier label.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
@@ -176,7 +179,7 @@ const Checkout = () => {
                       <Form.Group controlId="email">
                         <Form.Label>Email Address</Form.Label>
                         <Form.Control type="email" name="email" value={formData.email} onChange={handleChange} required />
-                        <Form.Control.Feedback type="invalid">Please enter a valid email.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">Valid email required for order updates.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
@@ -184,15 +187,15 @@ const Checkout = () => {
                       <Form.Group controlId="phone">
                         <Form.Label>Phone Number</Form.Label>
                         <Form.Control type="tel" name="phone" value={formData.phone} onChange={handleChange} pattern="^[6-9]\d{9}$" required />
-                        <Form.Control.Feedback type="invalid">Please enter a valid 10-digit phone number.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">Courier needs valid 10-digit number.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
                     <Col sm={12}>
                       <Form.Group controlId="address">
-                        <Form.Label>Street Address</Form.Label>
+                        <Form.Label>Street Address (House No, Building, Street)</Form.Label>
                         <Form.Control type="text" name="address" value={formData.address} onChange={handleChange} required />
-                        <Form.Control.Feedback type="invalid">Please enter your address.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">Please enter complete address.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
@@ -200,15 +203,20 @@ const Checkout = () => {
                       <Form.Group controlId="city">
                         <Form.Label>City</Form.Label>
                         <Form.Control type="text" name="city" value={formData.city} onChange={handleChange} required />
-                        <Form.Control.Feedback type="invalid">Please enter your city.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">City is required.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                     
                     <Col sm={4}>
                       <Form.Group controlId="state">
                         <Form.Label>State</Form.Label>
-                        <Form.Control type="text" name="state" value={formData.state} onChange={handleChange} required />
-                        <Form.Control.Feedback type="invalid">Please enter your state.</Form.Control.Feedback>
+                        <Form.Select name="state" value={formData.state} onChange={handleChange} required>
+                          <option value="">Choose...</option>
+                          {INDIAN_STATES.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </Form.Select>
+                        <Form.Control.Feedback type="invalid">Select State.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
 
@@ -216,20 +224,37 @@ const Checkout = () => {
                       <Form.Group controlId="postalCode">
                         <Form.Label>PIN Code</Form.Label>
                         <Form.Control type="text" name="postalCode" value={formData.postalCode} onChange={handleChange} pattern="^\d{6}$" required />
-                        <Form.Control.Feedback type="invalid">Please enter a valid 6-digit PIN.</Form.Control.Feedback>
+                        <Form.Control.Feedback type="invalid">Valid 6-digit PIN.</Form.Control.Feedback>
                       </Form.Group>
                     </Col>
                   </Row>
+                  
+                  {/* --- NEW: POD Policy Checkbox --- */}
+                  <Form.Group className="mb-3 mt-4 p-3 bg-light rounded border">
+                    <Form.Check 
+                        type="checkbox"
+                        id="pod-policy"
+                        required
+                        label={
+                            <span>
+                                I understand that this is a <strong>Custom/Print-on-Demand</strong> order. 
+                                Returns/Exchanges are not available for size issues.
+                            </span>
+                        }
+                        feedback="You must agree to the policy before ordering."
+                        feedbackType="invalid"
+                    />
+                  </Form.Group>
 
-                  <Button type="submit" variant="dark" size="lg" className="w-100 mt-5 fw-semibold" disabled={isLoading}>
-                    {isLoading ? 'Processing...' : 'Place Order & Pay'}
+                  <Button type="submit" variant="dark" size="lg" className="w-100 mt-3 fw-semibold" disabled={isLoading}>
+                    {isLoading ? 'Processing...' : `Pay & Place Order`}
                   </Button>
                 </Form>
               </Card.Body>
             </Card>
           </Col>
 
-          {/* --- 2. Order Summary (Sidebar) --- */}
+          {/* --- Order Summary --- */}
           <Col lg={5}>
             <Card className="shadow-sm border-0" style={{ top: '6rem' }}>
               <Card.Body className="p-4">
@@ -242,7 +267,6 @@ const Checkout = () => {
                     <ListGroup.Item key={item.cartItemId} className="d-flex justify-content-between align-items-center px-0">
                       <div className="d-flex align-items-center">
                         <Image 
-                           // Handle custom image or standard image array
                            src={item.isCustom ? (item.customPrintUrl || item.images[0]) : item.images[0]} 
                            alt={item.name} 
                            rounded 

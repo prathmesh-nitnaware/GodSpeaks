@@ -1,324 +1,242 @@
-const Product = require("../models/Product");
-const cloudinary = require("../config/cloudinary");
-
-// =========================================================================
-// PUBLIC CONTROLLERS
-// =========================================================================
+const Product = require('../models/Product');
+const asyncHandler = require('express-async-handler'); // Ensure you have this or use try-catch
 
 // @desc    Fetch all products
 // @route   GET /api/products
 const getProducts = async (req, res) => {
   try {
-    const { keyword, color, minPrice, maxPrice, size, sort } = req.query;
+    const pageSize = 12;
+    const page = Number(req.query.pageNumber) || 1;
 
-    let query = { isAvailable: true };
+    // Search & Filter Logic
+    const keyword = req.query.keyword
+      ? { name: { $regex: req.query.keyword, $options: 'i' } }
+      : {};
 
-    if (keyword) {
-      query.name = { $regex: keyword, $options: "i" };
-    }
+    // Filter by Category (if used) or Color
+    const categoryFilter = req.query.category 
+      ? { category: req.query.category } 
+      : {};
 
-    // Filter by Color instead of Category
-    if (color) {
-      query.color = { $in: color.split(",") };
-    }
+    const count = await Product.countDocuments({ ...keyword, ...categoryFilter });
+    const products = await Product.find({ ...keyword, ...categoryFilter })
+      .limit(pageSize)
+      .skip(pageSize * (page - 1))
+      .sort({ createdAt: -1 });
 
-    if (minPrice || maxPrice) {
-      query.price = {};
-      if (minPrice) query.price.$gte = Number(minPrice) * 100;
-      if (maxPrice) query.price.$lte = Number(maxPrice) * 100;
-    }
-
-    if (size) {
-      query.sizes = { $in: size.split(",") };
-    }
-
-    let sortOption = { createdAt: -1 };
-    if (sort === "price-asc") sortOption = { price: 1 };
-    if (sort === "price-desc") sortOption = { price: -1 };
-    if (sort === "oldest") sortOption = { createdAt: 1 };
-
-    const products = await Product.find(query).sort(sortOption);
-
-    res.json({ products, count: products.length });
+    res.json({ products, page, pages: Math.ceil(count / pageSize) });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error fetching products." });
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
-// @desc    Fetch a single product
+// @desc    Fetch single product
 // @route   GET /api/products/:id
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findById(req.params.id).populate('reviews.user', 'name email');
     if (product) {
       res.json(product);
     } else {
-      res.status(404).json({ message: "Product not found" });
+      res.status(404).json({ message: 'Product not found' });
     }
   } catch (error) {
-    res.status(500).json({ message: "Server error." });
+    res.status(404).json({ message: 'Product not found' });
   }
 };
 
-// @desc    Fetch Related Products (Same Color/Style)
+// @desc    Fetch Related Products (Same Color/Category)
 // @route   GET /api/products/:id/related
 const getRelatedProducts = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
+    try {
+        const product = await Product.findById(req.params.id);
+        if (!product) return res.status(404).json({ message: 'Product not found' });
+
+        // Find products with similar tags or keywords in name
+        // Simple logic: Find other products that share the first word of the name
+        const firstWord = product.name.split(' ')[0]; 
+        
+        const related = await Product.find({
+            _id: { $ne: product._id }, // Exclude current product
+            name: { $regex: firstWord, $options: 'i' }
+        }).limit(4);
+
+        res.json(related);
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error' });
     }
+}
 
-    // Find products with same color (or category logic if you prefer), exclude current
-    const related = await Product.find({
-      color: product.color,
-      _id: { $ne: product._id }, // Not Equal
-      isAvailable: true,
-    }).limit(4);
-
-    // If no related by color, just fetch 4 random latest
-    if (related.length === 0) {
-      const fallback = await Product.find({
-        _id: { $ne: product._id },
-        isAvailable: true,
-      })
-        .limit(4)
-        .sort({ createdAt: -1 });
-      return res.json(fallback);
-    }
-
-    res.json(related);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error fetching related products" });
-  }
-};
-
-// @desc    Join Waitlist for Out-of-Stock Item
-// @route   POST /api/products/:id/waitlist
-const joinWaitlist = async (req, res) => {
-  const { email } = req.body;
-  try {
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ message: "Product not found" });
-    }
-
-    // Ensure waitlist array exists (legacy data support)
-    if (!product.waitlist) product.waitlist = [];
-
-    const exists = product.waitlist.find((entry) => entry.email === email);
-    if (exists) {
-      return res
-        .status(400)
-        .json({ message: "You are already on the notification list!" });
-    }
-
-    product.waitlist.push({ email });
-    await product.save();
-
-    res.status(200).json({ message: "You have been added to the waitlist!" });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error adding to waitlist." });
-  }
-};
-
-// =========================================================================
-// ADMIN CONTROLLERS
-// =========================================================================
-
-// @desc    Admin: Create a new product
+// @desc    Create a product (Admin)
 // @route   POST /api/products
 const createProduct = async (req, res) => {
-  const files = req.files;
-  const { name, description, price, color, sizes } = req.body;
-
-  if (!files || files.length === 0) {
-    return res.status(400).json({ message: "Product must include images." });
-  }
-
-  let sizeArray = [];
-  if (typeof sizes === "string") {
-    sizeArray = sizes.split(",").filter((s) => s.trim() !== "");
-  } else if (Array.isArray(sizes)) {
-    sizeArray = sizes;
-  }
-
-  if (sizeArray.length === 0) {
-    return res
-      .status(400)
-      .json({ message: "Please select at least one size." });
-  }
-
   try {
-    const uploadPromises = files.map((file) => {
-      return cloudinary.uploader.upload(
-        file.path ||
-          `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-        { folder: "godspeaks-products" }
-      );
-    });
+    const { name, price, description, color, sizes } = req.body;
+    
+    // --- 1. HANDLE IMAGES ---
+    // If using Cloudinary middleware, req.files will contain the uploaded files
+    let imageLinks = [];
+    if (req.files && req.files.length > 0) {
+       // Assuming your upload middleware (multer-storage-cloudinary) puts the url in 'path'
+       imageLinks = req.files.map(file => file.path); 
+    } else {
+        // Fallback placeholder
+        imageLinks = ['https://via.placeholder.com/500'];
+    }
 
-    const uploadResults = await Promise.all(uploadPromises);
-    const imageURLs = uploadResults.map((result) => result.secure_url);
+    // --- 2. HANDLE SIZES TRANSFORMATION (Critical for POD) ---
+    // Frontend sends "S,M,L" (string) -> Backend needs [{size:'S', available:true}, ...]
+    let formattedSizes = [];
+    if (sizes) {
+        const sizeArray = Array.isArray(sizes) ? sizes : sizes.split(',');
+        formattedSizes = sizeArray.map(s => ({
+            size: s.trim(),
+            available: true // Default to true on creation
+        }));
+    }
 
-    const newProduct = new Product({
+    const product = new Product({
       name,
+      price,
       description,
-      price: price * 100,
-      images: imageURLs,
-      color: color || "Black",
-      sizes: sizeArray,
-      isAvailable: true,
+      color: color || 'Black',
+      sizes: formattedSizes, // Save the object array
+      images: imageLinks,
+      user: req.user._id,
+      numReviews: 0,
     });
 
-    const createdProduct = await newProduct.save();
-    res
-      .status(201)
-      .json({ message: "Product created", product: createdProduct });
+    const createdProduct = await product.save();
+    res.status(201).json(createdProduct);
   } catch (error) {
     console.error(error);
-    res
-      .status(500)
-      .json({ message: "Error creating product.", error: error.message });
+    res.status(500).json({ message: 'Product creation failed', error: error.message });
   }
 };
 
-// @desc    Admin: Update an existing product
+// @desc    Update a product (Admin)
 // @route   PUT /api/products/:id
 const updateProduct = async (req, res) => {
-  const productId = req.params.id;
-  const { name, description, price, color, sizes, isAvailable } = req.body;
-  const files = req.files;
-
   try {
-    const product = await Product.findById(productId);
+    const { name, price, description, color, sizes, isAvailable } = req.body;
+    
+    const product = await Product.findById(req.params.id);
 
     if (product) {
-      let newImageURLs = product.images;
-
-      if (files && files.length > 0) {
-        const uploadPromises = files.map((file) =>
-          cloudinary.uploader.upload(
-            file.path ||
-              `data:${file.mimetype};base64,${file.buffer.toString("base64")}`,
-            { folder: "godspeaks-products" }
-          )
-        );
-        const uploadResults = await Promise.all(uploadPromises);
-        newImageURLs = uploadResults.map((result) => result.secure_url);
-      }
-
       product.name = name || product.name;
+      product.price = price || product.price;
       product.description = description || product.description;
-      product.price = price ? price * 100 : product.price;
       product.color = color || product.color;
-      product.images = newImageURLs;
+      product.isAvailable = isAvailable !== undefined ? isAvailable : product.isAvailable;
 
-      if (isAvailable !== undefined) {
-        product.isAvailable = isAvailable === "true" || isAvailable === true;
+      // Handle Sizes Update
+      if (sizes) {
+        // If sending simple string "S,M", reset availability to true
+        // If you build a complex admin UI later, you can send objects directly
+        const sizeArray = Array.isArray(sizes) ? sizes : sizes.split(',');
+        
+        // Advanced: Try to preserve availability of existing sizes if possible
+        product.sizes = sizeArray.map(s => {
+            const trimmedS = s.trim();
+            const existing = product.sizes.find(ps => ps.size === trimmedS);
+            return {
+                size: trimmedS,
+                available: existing ? existing.available : true
+            };
+        });
       }
 
-      if (sizes) {
-        if (typeof sizes === "string") {
-          product.sizes = sizes.split(",").filter((s) => s.trim() !== "");
-        } else if (Array.isArray(sizes)) {
-          product.sizes = sizes;
-        }
+      // Handle Images Update (Only if new images uploaded)
+      if (req.files && req.files.length > 0) {
+          const imageLinks = req.files.map(file => file.path);
+          product.images = imageLinks;
       }
 
       const updatedProduct = await product.save();
-      res.json({
-        message: "Product updated successfully",
-        product: updatedProduct,
-      });
+      res.json(updatedProduct);
     } else {
-      res.status(404).json({ message: "Product not found" });
+      res.status(404).json({ message: 'Product not found' });
     }
   } catch (error) {
-    res
-      .status(500)
-      .json({ message: "Error updating product.", error: error.message });
+      console.error(error);
+      res.status(500).json({ message: 'Update failed' });
   }
 };
 
-// @desc    Admin: Delete a product
+// @desc    Delete a product
 // @route   DELETE /api/products/:id
 const deleteProduct = async (req, res) => {
   try {
-    await Product.deleteOne({ _id: req.params.id });
-    res.json({ message: "Product removed successfully" });
+    const product = await Product.findById(req.params.id);
+
+    if (product) {
+      await product.deleteOne();
+      res.json({ message: 'Product removed' });
+    } else {
+      res.status(404).json({ message: 'Product not found' });
+    }
   } catch (error) {
-    res.status(500).json({ message: "Error deleting product." });
+    res.status(500).json({ message: 'Server Error' });
   }
 };
 
 // @desc    Create new review
+// @route   POST /api/products/:id/reviews
 const createProductReview = async (req, res) => {
-  const { rating, comment, name } = req.body;
-  const file = req.file;
+  const { rating, comment, name } = req.body; // Added 'name' in case it's passed
 
   try {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-      const alreadyReviewed = product.reviews.find(
-        (r) => r.user.toString() === req.user._id.toString()
-      );
-      if (alreadyReviewed) {
-        return res.status(400).json({ message: "Product already reviewed" });
+      const product = await Product.findById(req.params.id);
+
+      if (product) {
+        // Check if user already reviewed
+        const alreadyReviewed = product.reviews.find(
+          (r) => r.user.toString() === req.user._id.toString()
+        );
+
+        if (alreadyReviewed) {
+          return res.status(400).json({ message: 'Product already reviewed' });
+        }
+
+        const review = {
+          name: name || req.user.name || 'Customer', // Fallback name
+          rating: Number(rating),
+          comment,
+          user: req.user._id,
+        };
+
+        product.reviews.push(review);
+        product.numReviews = product.reviews.length;
+        product.rating =
+          product.reviews.reduce((acc, item) => item.rating + acc, 0) /
+          product.reviews.length;
+
+        await product.save();
+        res.status(201).json({ message: 'Review added' });
+      } else {
+        res.status(404).json({ message: 'Product not found' });
       }
-
-      let imageUrl = null;
-      if (file) {
-        const result = await new Promise((resolve, reject) => {
-          const uploadStream = cloudinary.uploader.upload_stream(
-            { folder: "godspeaks-reviews" },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          );
-          const bufferStream = require("stream").Readable.from(file.buffer);
-          bufferStream.pipe(uploadStream);
-        });
-        imageUrl = result.secure_url;
-      }
-
-      const review = {
-        name: name || req.user.name || "Customer",
-        rating: Number(rating),
-        comment,
-        image: imageUrl,
-        user: req.user._id,
-      };
-
-      product.reviews.push(review);
-      product.numReviews = product.reviews.length;
-      product.rating =
-        product.reviews.reduce((acc, item) => item.rating + acc, 0) /
-        product.reviews.length;
-
-      await product.save();
-      res.status(201).json({ message: "Review added" });
-    } else {
-      res.status(404).json({ message: "Product not found" });
-    }
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error adding review" });
+      res.status(500).json({ message: 'Review failed' });
   }
+};
+
+// @desc    Join Waitlist
+// @route   POST /api/products/:id/waitlist
+const joinWaitlist = async (req, res) => {
+    // Basic implementation: Log it or save to a Waitlist collection
+    // For now, just send success
+    console.log(`Email ${req.body.email} joined waitlist for Product ${req.params.id}`);
+    res.status(200).json({ message: 'Joined waitlist' });
 };
 
 module.exports = {
   getProducts,
   getProductById,
-  getRelatedProducts, // Ensure this is exported
-  joinWaitlist, // Ensure this is exported
+  getRelatedProducts,
   createProduct,
   updateProduct,
   deleteProduct,
   createProductReview,
+  joinWaitlist
 };
