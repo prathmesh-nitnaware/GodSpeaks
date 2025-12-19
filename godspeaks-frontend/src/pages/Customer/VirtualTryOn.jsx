@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import Webcam from 'react-webcam';
 import { Rnd } from 'react-rnd'; // For draggable/resizable shirt
 import html2canvas from 'html2canvas'; // For taking photos
-import { Container, Row, Col, Button, Spinner, Form, Card } from 'react-bootstrap';
+import { Container, Row, Col, Button, Spinner, Card } from 'react-bootstrap';
 import { fetchAllProducts } from '../../api/productsApi';
 import { Link } from 'react-router-dom';
 
@@ -22,8 +22,10 @@ const VirtualTryOn = () => {
     const loadProducts = async () => {
       try {
         const data = await fetchAllProducts();
-        setProducts(data);
-        if (data.length > 0) setSelectedProduct(data[0]);
+        // Handle API response structure (data.products or just data)
+        const productList = data.products || data || [];
+        setProducts(productList);
+        if (productList.length > 0) setSelectedProduct(productList[0]);
       } catch (err) {
         console.error("Failed to load products");
       } finally {
@@ -33,7 +35,7 @@ const VirtualTryOn = () => {
     loadProducts();
   }, []);
 
-  // Handle File Upload
+  // Handle File Upload (Alternative to Webcam)
   const handleFileUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -42,10 +44,14 @@ const VirtualTryOn = () => {
     }
   };
 
-  // Capture Screenshot (Merge Webcam + Shirt)
+  // Capture Screenshot (Merge Webcam/Photo + Shirt)
   const handleCapture = async () => {
     if (captureRef.current) {
-      const canvas = await html2canvas(captureRef.current, { backgroundColor: null });
+      // Use html2canvas to take a picture of the DOM element
+      const canvas = await html2canvas(captureRef.current, { 
+          backgroundColor: null,
+          useCORS: true // Important for loading images from Cloudinary
+      });
       setCapturedImage(canvas.toDataURL('image/png'));
     }
   };
@@ -53,9 +59,9 @@ const VirtualTryOn = () => {
   return (
     <Container className="py-5">
       <div className="text-center mb-4">
-        <h1 className="fw-bold">Virtual Try-On Studio</h1>
+        <h1 className="fw-bold">Virtual Try-On Studio 📸</h1>
         <p className="text-muted">
-          See how our faith-based designs look on you! Select a product and adjust it to fit.
+          Select a design, drag to adjust, and see how it fits!
         </p>
       </div>
 
@@ -76,7 +82,8 @@ const VirtualTryOn = () => {
                       alt={p.name}
                       onClick={() => setSelectedProduct(p)}
                       className={`border rounded cursor-pointer ${selectedProduct?._id === p._id ? 'border-primary border-3' : ''}`}
-                      style={{ width: '80px', height: '80px', objectFit: 'cover', cursor: 'pointer' }}
+                      style={{ width: '80px', height: '80px', objectFit: 'contain', cursor: 'pointer' }}
+                      title={p.name}
                     />
                   ))}
                 </div>
@@ -108,7 +115,8 @@ const VirtualTryOn = () => {
               </div>
 
               <div className="alert alert-info small">
-                <strong>Tip:</strong> Drag and resize the T-shirt on the preview to match your body position.
+                <i className="bi bi-arrows-move me-2"></i>
+                <strong>Instructions:</strong> Drag the shirt to move it. Drag the corners to resize it to fit your body.
               </div>
               
               {selectedProduct && (
@@ -128,8 +136,8 @@ const VirtualTryOn = () => {
         <Col lg={8}>
           <div className="position-relative bg-dark rounded overflow-hidden d-flex justify-content-center align-items-center" style={{ minHeight: '500px', backgroundColor: '#000' }}>
             
-            {/* Capture Area Wrapper */}
-            <div ref={captureRef} className="position-relative" style={{ width: '100%', height: '100%', maxWidth: '640px' }}>
+            {/* Capture Area Wrapper - This is what gets screenshotted */}
+            <div ref={captureRef} className="position-relative" style={{ width: '100%', height: '100%', maxWidth: '640px', overflow: 'hidden' }}>
                 
                 {/* A. Background Layer (Webcam or Image) */}
                 {mode === 'webcam' ? (
@@ -143,15 +151,17 @@ const VirtualTryOn = () => {
                 ) : uploadedImage ? (
                     <img src={uploadedImage} alt="User Upload" style={{ width: '100%', display: 'block' }} />
                 ) : (
-                    <div className="text-white text-center py-5">Please upload a photo or enable camera.</div>
+                    <div className="text-white text-center py-5 d-flex align-items-center justify-content-center" style={{ height: '400px' }}>
+                        <div>Please upload a photo or enable camera permissions.</div>
+                    </div>
                 )}
 
                 {/* B. Overlay Layer (Draggable Shirt) */}
                 {selectedProduct && (
                     <Rnd
                         default={{
-                            x: 150,
-                            y: 150,
+                            x: 100,
+                            y: 100,
                             width: 200,
                             height: 200,
                         }}
@@ -161,26 +171,35 @@ const VirtualTryOn = () => {
                         <img 
                             src={selectedProduct.images[0]} 
                             alt="Shirt Overlay" 
-                            style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            draggable={false} 
+                            style={{ 
+                                width: '100%', 
+                                height: '100%', 
+                                objectFit: 'contain', 
+                                pointerEvents: 'none' // Lets clicks pass through to Rnd handler
+                            }}
+                            crossOrigin="anonymous" // Essential for html2canvas + Cloudinary
                         />
                     </Rnd>
                 )}
             </div>
 
             {/* Action Buttons Overlay */}
-            <div className="position-absolute bottom-0 mb-3 d-flex gap-3">
-                <Button variant="light" onClick={handleCapture}>📸 Take Snapshot</Button>
+            <div className="position-absolute bottom-0 mb-3 d-flex gap-3" style={{ zIndex: 10 }}>
+                <Button variant="light" onClick={handleCapture} className="shadow fw-bold">
+                    📸 Take Snapshot
+                </Button>
             </div>
           </div>
 
           {/* Snapshot Result */}
           {capturedImage && (
-              <div className="mt-4 text-center">
-                  <h5 className="fw-bold">Your Look</h5>
-                  <img src={capturedImage} alt="Snapshot" className="img-fluid rounded border shadow-sm" style={{ maxHeight: '400px' }} />
-                  <div className="mt-2">
-                      <a href={capturedImage} download="godspeaks-tryon.png" className="btn btn-outline-dark btn-sm">Download Image</a>
+              <div className="mt-4 text-center bg-light p-4 rounded border">
+                  <h5 className="fw-bold mb-3">Your Try-On Result</h5>
+                  <img src={capturedImage} alt="Snapshot" className="img-fluid rounded border shadow-sm mb-3" style={{ maxHeight: '400px' }} />
+                  <div>
+                      <a href={capturedImage} download="godspeaks-tryon.png" className="btn btn-dark">
+                          <i className="bi bi-download me-2"></i> Download Image
+                      </a>
                   </div>
               </div>
           )}
