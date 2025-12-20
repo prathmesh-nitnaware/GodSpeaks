@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { 
     registerUser, 
-    adminLogin, 
+    loginUser, // CHANGED: Match the export name from authController
     googleLogin, 
     forgotPassword, 
     resetPassword 
@@ -27,30 +27,21 @@ const registerRules = [
  * AUTH ROUTES
  */
 
-// @route   POST /api/auth/register
-// Registers a new customer
 router.post('/register', registerRules, registerUser);
 
-// @route   POST /api/auth/login
-// Supports both Admin and Customer login
-router.post('/login', loginRules, adminLogin);
+// CHANGED: Using loginUser here
+router.post('/login', loginRules, loginUser);
 
-// @route   POST /api/auth/google
-// Handles social authentication
 router.post('/google', googleLogin);
 
 /**
  * PASSWORD RECOVERY ROUTES
  */
 
-// @route   POST /api/auth/forgot-password
-// Generates a secure token and emails it to the user
 router.post('/forgot-password', [
     body('email').isEmail().withMessage('Please provide a valid email')
 ], forgotPassword);
 
-// @route   PUT /api/auth/reset-password/:resetToken
-// Verifies the token and updates the user's password
 router.put('/reset-password/:resetToken', [
     body('password').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
 ], resetPassword);

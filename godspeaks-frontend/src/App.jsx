@@ -4,8 +4,8 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 // --- Layout & Protected Route ---
 import AppNavbar from './components/Layout/AppNavbar'; 
 import Footer from './components/Layout/Footer';
-import AdminLayout from './layouts/AdminLayout';
-import ProtectedRoute from './components/Common/ProtectedRoute';
+import AdminLayout from './components/Layout/AdminLayout'; // Path fixed
+import ProtectedRoute from './components/Common/ProtectedRoute'; // Path fixed
 
 // --- Page Imports (Customer) ---
 import Home from './pages/Customer/Home';
@@ -20,17 +20,17 @@ import CustomerDashboard from './pages/Customer/CustomerDashboard';
 import Wishlist from './pages/Customer/Wishlist';
 import CustomPrint from './pages/Customer/CustomPrint';
 import VirtualTryOn from './pages/Customer/VirtualTryOn';
-import TrackOrder from './pages/Customer/TrackOrder'; // NEW
+import TrackOrder from './pages/Customer/TrackOrder'; 
 
 // --- Page Imports (Auth) ---
-import ForgotPassword from './pages/Auth/ForgotPassword'; // NEW
-import ResetPassword from './pages/Auth/ResetPassword';   // NEW
+import ForgotPassword from './pages/Auth/ForgotPassword'; 
+import ResetPassword from './pages/Auth/ResetPassword';   
 
 // --- Page Imports (Admin) ---
 import AdminLogin from './pages/Admin/AdminLogin';
 import AdminDashboard from './pages/Admin/AdminDashboard';
-import ProductList from './pages/Admin/ProductList';      
-import ProductForm from './pages/Admin/ProductForm';      
+import ProductList from './components/Admin/ProductList'; // Pointing to components/Admin
+import ProductForm from './components/Admin/ProductForm'; // Pointing to components/Admin
 import OrderManagement from './pages/Admin/OrderManagement';
 
 // --- Context Providers ---
@@ -50,7 +50,6 @@ function App() {
         <WishlistProvider>
           <div className="d-flex flex-column min-vh-100 bg-light">
             
-            {/* Show Navbar only for customers */}
             {!isAdminPath && <AppNavbar />}
 
             <main className="flex-grow-1">
@@ -68,13 +67,12 @@ function App() {
                 <Route path="/wishlist" element={<Wishlist />} />
                 <Route path="/custom-print" element={<CustomPrint />} />
                 <Route path="/try-on" element={<VirtualTryOn />} />
-                <Route path="/track-order" element={<TrackOrder />} /> {/* NEW */}
+                <Route path="/track-order" element={<TrackOrder />} /> 
                 
                 {/* --- Auth Routes --- */}
-                <Route path="/forgot-password" element={<ForgotPassword />} /> {/* NEW */}
-                <Route path="/reset-password/:token" element={<ResetPassword />} /> {/* NEW */}
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password/:token" element={<ResetPassword />} />
                 
-                {/* --- Public Admin Route (Login) --- */}
                 <Route path="/admin/login" element={<AdminLogin />} />
                 
                 {/* --- CUSTOMER PROTECTED ROUTES --- */}
@@ -82,7 +80,7 @@ function App() {
                   <Route path="/account" element={<CustomerDashboard />} />
                 </Route>
 
-                {/* --- ADMIN PROTECTED ROUTES (Wrapped in AdminLayout) --- */}
+                {/* --- ADMIN PROTECTED ROUTES --- */}
                 <Route element={<ProtectedRoute adminOnly={true} />}>
                   <Route 
                     path="/admin/*" 
@@ -100,7 +98,6 @@ function App() {
                   />
                 </Route>
 
-                {/* --- 404 Not Found Route --- */}
                 <Route path="*" element={
                   <div className="text-center p-5">
                     <h1 className="display-4 fw-bold">404 - Page Not Found</h1>
@@ -110,7 +107,6 @@ function App() {
               </Routes>
             </main>
 
-            {/* Show Footer only for customers */}
             {!isAdminPath && <Footer />}
           </div>
         </WishlistProvider>
