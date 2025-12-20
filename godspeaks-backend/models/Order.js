@@ -5,18 +5,19 @@ const OrderItemSchema = new mongoose.Schema({
     name: { type: String, required: true },
     qty: { type: Number, required: true },
     size: { type: String, required: true },
-    image: { type: String, required: true }, // Display Thumbnail (Web Optimized)
+    color: { type: String }, // NEW: Store the selected fabric color
+    image: { type: String, required: true }, // Web-optimized thumbnail
     price: { type: Number, required: true }, 
-    // Link to product is optional for Custom Prints
     product: {
         type: mongoose.Schema.Types.ObjectId,
         required: false, 
         ref: 'Product',
     },
-    // New field for custom design
     isCustom: { type: Boolean, default: false },
-    // --- UPDATED: Explicitly store the High-Res Print File URL ---
-    printFileUrl: { type: String }, 
+    // --- UPDATED: Assets for the Printer ---
+    printFileUrl: { type: String },      // High-Res Front Design
+    secondaryPrintUrl: { type: String }, // High-Res Back Design
+    message: { type: String },           // NEW: Special instructions from customer
 });
 
 // --- MAIN ORDER SCHEMA ---
@@ -32,6 +33,13 @@ const OrderSchema = new mongoose.Schema({
     },
     
     orderItems: [OrderItemSchema],
+
+    // --- NEW: Critical for Webhook matching ---
+    razorpayOrderId: { 
+        type: String, 
+        required: false, 
+        index: true // Indexed for fast lookup by the webhook
+    },
 
     paymentResult: {
         razorpay_order_id: { type: String },
@@ -67,6 +75,9 @@ const OrderSchema = new mongoose.Schema({
     deliveredAt: {
         type: Date,
     },
+    // NEW: Tracking Information
+    trackingId: { type: String },
+    carrier: { type: String, default: 'Standard Courier' }
 }, {
     timestamps: true 
 });
