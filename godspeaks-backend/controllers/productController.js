@@ -1,13 +1,19 @@
 const Product = require('../models/Product');
 
-// @desc    Fetch all products with pagination
+// @desc    Fetch all products with pagination & Optimized Text Search
 // @route   GET /api/products
 const getProducts = async (req, res) => {
   try {
     const pageSize = 12;
     const page = Number(req.query.pageNumber) || 1;
+
+    /**
+     * OPTIMIZATION: Indexing Gaps Fix
+     * Switched from $regex (Full Collection Scan) to $text (Indexed Search).
+     * This is significantly faster for large inventories.
+     */
     const keyword = req.query.keyword
-      ? { name: { $regex: req.query.keyword, $options: 'i' } }
+      ? { $text: { $search: req.query.keyword } }
       : {};
 
     const count = await Product.countDocuments({ ...keyword });
@@ -58,7 +64,7 @@ const createProduct = async (req, res) => {
   try {
     const { name, price, description, color, sizes } = req.body;
     
-    // 1. Handle Images from Multer-Cloudinary
+    // 1. Image Handling
     let imageLinks = [];
     if (req.files && req.files.length > 0) {
        imageLinks = req.files.map(file => file.path || file.url); 
@@ -66,7 +72,7 @@ const createProduct = async (req, res) => {
         imageLinks = ['https://via.placeholder.com/500'];
     }
 
-    // 2. Transform Sizes String to POD Schema Objects
+    // 2. POD Size Schema Formatting
     let formattedSizes = [];
     if (sizes) {
         const sizeArray = Array.isArray(sizes) ? sizes : sizes.split(',');
@@ -80,7 +86,7 @@ const createProduct = async (req, res) => {
       name,
       price,
       description,
-      color: color || 'Black',
+      color: color || 'Black', // Support for the unlimited color picker
       sizes: formattedSizes,
       images: imageLinks,
       user: req.user._id,
@@ -105,7 +111,7 @@ const updateProduct = async (req, res) => {
       product.name = name || product.name;
       product.price = price || product.price;
       product.description = description || product.description;
-      product.color = color || product.color;
+      product.color = color || product.color; 
       product.isAvailable = isAvailable !== undefined ? isAvailable : product.isAvailable;
 
       if (sizes) {
@@ -185,8 +191,6 @@ const createProductReview = async (req, res) => {
   }
 };
 
-// @desc    Join Waitlist
-// @route   POST /api/products/:id/waitlist
 const joinWaitlist = async (req, res) => {
     res.status(200).json({ message: 'Joined waitlist' });
 };

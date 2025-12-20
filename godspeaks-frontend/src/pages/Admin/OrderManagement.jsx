@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, Badge, Container, Modal, Form, Image, Row, Col, Card } from 'react-bootstrap';
+import { Table, Button, Badge, Container, Modal, Form, Image, Row, Col, Card, Pagination, Spinner } from 'react-bootstrap';
 import { getAllOrdersApi, updateOrderStatusApi } from '../../api/orderApi'; 
 
 const OrderManagement = () => {
@@ -9,15 +9,23 @@ const OrderManagement = () => {
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
+  // --- NEW: Pagination State ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
 
-  const fetchOrders = async () => {
+  useEffect(() => {
+    fetchOrders(currentPage);
+  }, [currentPage]);
+
+  const fetchOrders = async (page) => {
     try {
       setLoading(true);
-      const data = await getAllOrdersApi();
-      setOrders(data);
+      // Your updated API now returns: { orders, page, pages, totalOrders }
+      const data = await getAllOrdersApi(page);
+      setOrders(data.orders);
+      setTotalPages(data.pages);
+      setTotalOrders(data.totalOrders);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -35,7 +43,7 @@ const OrderManagement = () => {
     try {
       await updateOrderStatusApi(selectedOrder._id, status);
       setShowModal(false);
-      fetchOrders(); // Refresh list to reflect changes
+      fetchOrders(currentPage); // Refresh the current page
     } catch (error) {
       alert('Failed to update status');
       console.error(error);
@@ -55,9 +63,12 @@ const OrderManagement = () => {
   return (
     <Container className="py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2 className="fw-bold text-dark">Fulfillment Dashboard</h2>
-        <Button variant="outline-dark" size="sm" onClick={fetchOrders} disabled={loading}>
-          {loading ? 'Refreshing...' : 'Refresh Orders'}
+        <div>
+          <h2 className="fw-bold text-dark mb-0">Fulfillment Dashboard</h2>
+          <p className="text-muted small mb-0">Total Orders: {totalOrders}</p>
+        </div>
+        <Button variant="outline-dark" size="sm" onClick={() => fetchOrders(currentPage)} disabled={loading}>
+          {loading ? <Spinner animation="border" size="sm" /> : 'Refresh List'}
         </Button>
       </div>
 
@@ -73,27 +84,52 @@ const OrderManagement = () => {
           </tr>
         </thead>
         <tbody>
-          {orders.map((order) => (
-            <tr key={order._id} className="align-middle">
-              <td className="fw-bold text-primary">
-                #GS-{order._id.slice(-6).toUpperCase()} {/* Professional formatting */}
-              </td>
-              <td>
-                <div className="fw-semibold">{order.shippingInfo.name}</div>
-                <small className="text-muted">{order.shippingInfo.email}</small>
-              </td>
-              <td>{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
-              <td className="fw-bold">₹{(order.totalPrice / 100).toFixed(2)}</td>
-              <td>{getStatusBadge(order.orderStatus)}</td>
-              <td className="text-center">
-                <Button variant="dark" size="sm" className="px-3 rounded-pill" onClick={() => handleShowModal(order)}>
-                  View Details
-                </Button>
-              </td>
-            </tr>
-          ))}
+          {loading ? (
+            <tr><td colSpan="6" className="text-center py-5"><Spinner animation="grow" /></td></tr>
+          ) : orders.length === 0 ? (
+            <tr><td colSpan="6" className="text-center py-5 text-muted">No orders found.</td></tr>
+          ) : (
+            orders.map((order) => (
+              <tr key={order._id} className="align-middle">
+                <td className="fw-bold text-primary">
+                  #GS-{order._id.slice(-6).toUpperCase()}
+                </td>
+                <td>
+                  <div className="fw-semibold">{order.shippingInfo.name}</div>
+                  <small className="text-muted">{order.shippingInfo.email}</small>
+                </td>
+                <td>{new Date(order.createdAt).toLocaleDateString('en-IN')}</td>
+                <td className="fw-bold">₹{(order.totalPrice / 100).toFixed(2)}</td>
+                <td>{getStatusBadge(order.orderStatus)}</td>
+                <td className="text-center">
+                  <Button variant="dark" size="sm" className="px-3 rounded-pill" onClick={() => handleShowModal(order)}>
+                    View Details
+                  </Button>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </Table>
+
+      {/* --- NEW: Pagination UI --- */}
+      {totalPages > 1 && (
+        <div className="d-flex justify-content-center mt-4">
+          <Pagination>
+            <Pagination.Prev disabled={currentPage === 1} onClick={() => setCurrentPage(prev => prev - 1)} />
+            {[...Array(totalPages)].map((_, idx) => (
+              <Pagination.Item 
+                key={idx + 1} 
+                active={idx + 1 === currentPage} 
+                onClick={() => setCurrentPage(idx + 1)}
+              >
+                {idx + 1}
+              </Pagination.Item>
+            ))}
+            <Pagination.Next disabled={currentPage === totalPages} onClick={() => setCurrentPage(prev => prev + 1)} />
+          </Pagination>
+        </div>
+      )}
 
       {/* --- ORDER DETAILS MODAL --- */}
       <Modal show={showModal} onHide={() => setShowModal(false)} size="lg" centered>
@@ -156,7 +192,7 @@ const OrderManagement = () => {
                             <Image src={item.image} width="50" height="50" rounded className="me-3 border shadow-sm" />
                             <div>
                               <div className="fw-bold">{item.isCustom ? "CUSTOM DESIGN" : item.name}</div>
-                              <small className="text-muted">Database ID: {item.product || 'N/A'}</small>
+                              <small className="text-muted">ID: {item.product || 'N/A'}</small>
                             </div>
                           </div>
                         </td>
@@ -182,7 +218,6 @@ const OrderManagement = () => {
                           )}
                         </td>
                       </tr>
-                      {/* --- Display Customer Message/Instructions --- */}
                       {item.isCustom && item.message && (
                         <tr>
                           <td colSpan="4" className="bg-warning-subtle p-2 rounded small">

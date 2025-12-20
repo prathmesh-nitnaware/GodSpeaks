@@ -4,7 +4,6 @@ const bcrypt = require('bcryptjs');
 const CustomerSchema = new mongoose.Schema({
     name: {
         type: String,
-        // required: true, // Optional: make name required if you update the sign-up form later
     },
     email: {
         type: String,
@@ -18,7 +17,10 @@ const CustomerSchema = new mongoose.Schema({
     role: {
         type: String,
         default: 'customer',
-    }
+    },
+    // --- NEW: Password Reset Fields ---
+    resetPasswordToken: String,
+    resetPasswordExpire: Date,
 }, {
     timestamps: true
 });

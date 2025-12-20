@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit'); // NEW: Security logic
 const connectDB = require('./config/db');
 const cron = require('node-cron');
 const Cart = require('./models/Cart');
@@ -14,23 +16,53 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 
-// 1. Connect to Database
+// 1. Initialize App and Connect Database
 connectDB(); 
-
 const app = express();
 
-// --- FIXED: Dynamic CORS Origin ---
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+// --- 2. SECURITY & RATE LIMITING ---
 
+// Global Rate Limiter: 100 requests per 15 minutes per IP
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: { message: 'Too many requests from this IP, please try again after 15 minutes.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// Stricter Limiter for Auth & Payments: 10 attempts per hour
+const strictLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, 
+    max: 10, 
+    message: { message: 'Too many attempts detected. Please try again in an hour.' },
+});
+
+// Apply Security headers
+app.use(helmet({
+    crossOriginResourcePolicy: false, 
+}));
+
+// Apply general limiter to all routes
+app.use('/api/', generalLimiter);
+
+// --- 3. HARDENED CORS ---
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
 app.use(cors({
-    origin: [clientUrl], 
+    // Only allow your specific frontend URL in production to prevent CSRF
+    origin: process.env.NODE_ENV === 'production' ? clientUrl : 'http://localhost:3000', 
     credentials: true
 }));
 
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
 
-// 3. Mount Routes
+// --- 4. API ROUTES ---
+
+// Apply strict limiter to sensitive endpoints
+app.use('/api/auth/login', strictLimiter);
+app.use('/api/orders/create', strictLimiter);
+
 app.use('/api/auth', authRoutes); 
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
@@ -42,10 +74,10 @@ app.get('/', (req, res) => {
     res.send('GodSpeaks API is Running...');
 });
 
-// --- 4. ABANDONED CART RECOVERY CRON JOB ---
-// Runs every hour at minute 0 (0 * * * *)
+// --- 5. ABANDONED CART RECOVERY CRON JOB ---
 cron.schedule('0 * * * *', async () => {
-    console.log('[Cron] Checking for abandoned carts...');
+    const timestamp = new Date().toLocaleString();
+    console.log(`[Cron Log ${timestamp}] Checking for abandoned carts...`);
     
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
@@ -57,51 +89,48 @@ cron.schedule('0 * * * *', async () => {
             isAbandoned: false 
         }).populate('user'); 
 
-        if (abandonedCarts.length === 0) {
-            console.log('[Cron] No abandoned carts found.');
-            return;
-        }
-
-        console.log(`[Cron] Found ${abandonedCarts.length} abandoned carts. Sending emails...`);
+        if (abandonedCarts.length === 0) return;
 
         for (const cart of abandonedCarts) {
-            // --- FIXED: Check if user exists before accessing email (Guest Cart Protection) ---
             if (cart.user && cart.user.email) {
-                
-                const emailSubject = "You left something behind! 🛒";
-                // --- FIXED: Use Dynamic CLIENT_URL for the link ---
+                const emailSubject = "You left some faith behind! 🛒";
                 const emailBody = `
-                    <div style="font-family: sans-serif;">
+                    <div style="font-family: sans-serif; max-width: 600px; margin: auto; border: 1px solid #eee; padding: 40px;">
+                        <h1 style="text-align: center;">GodSpeaks.</h1>
                         <h2>Hi ${cart.user.name || 'Friend'},</h2>
-                        <p>We noticed you left some great items in your cart at GodSpeaks.</p>
-                        <p>They are selling out fast! Click below to complete your order:</p>
-                        <a href="${clientUrl}/cart" style="background: #000; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Return to Cart</a>
-                        <br/><br/>
+                        <p>We noticed you left some inspired designs in your cart.</p>
+                        <div style="text-align: center; margin: 40px 0;">
+                            <a href="${clientUrl}/cart" style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Return to My Cart</a>
+                        </div>
                         <p>Blessings,<br/>The GodSpeaks Team</p>
-                    </div>
-                `;
+                    </div>`;
 
                 await sendTestEmail(cart.user.email, emailSubject, emailBody); 
-                
                 cart.emailSent = true;
                 cart.isAbandoned = true;
                 await cart.save();
-                
-                console.log(`[Cron] Email sent to ${cart.user.email}`);
             } else {
-                // If it's a guest cart with no user attached, we can't email them. 
-                // Mark as processed so we don't check it again.
                 cart.emailSent = true; 
                 await cart.save();
             }
         }
     } catch (error) {
-        console.error('[Cron] Error in Abandoned Cart Job:', error);
+        console.error(`[Cron Log] Error in Job:`, error);
     }
 });
 
-const PORT = process.env.PORT || 5000;
+// --- 6. GLOBAL ERROR HANDLING ---
+app.use((err, req, res, next) => {
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+    res.status(statusCode);
+    res.json({
+        message: err.message,
+        stack: process.env.NODE_ENV === 'production' ? '🛡️' : err.stack,
+    });
+});
 
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`[Server] Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`[Server] Running on port: ${PORT}`);
 });
