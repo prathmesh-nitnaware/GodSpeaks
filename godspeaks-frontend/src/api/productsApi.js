@@ -13,27 +13,28 @@ const handleResponse = async (response) => {
   return await response.json();
 };
 
+// --- HELPER: Token Retriever ---
+const getAuthToken = () => {
+  const userInfo = localStorage.getItem("userInfo");
+  const adminInfo = localStorage.getItem("godspeaks_admin");
+  const parsed = adminInfo ? JSON.parse(adminInfo) : (userInfo ? JSON.parse(userInfo) : null);
+  return parsed ? parsed.token : null;
+};
+
 /**
  * Fetch All Products
- * Supports Search, Category Filters, and Pagination.
  */
 export const fetchAllProducts = async (filters = {}) => {
   try {
     const queryParams = new URLSearchParams();
-
-    // Standard Filters
     if (filters.search) queryParams.append("keyword", filters.search);
     if (filters.category && filters.category.length > 0)
       queryParams.append("category", filters.category.join(","));
     if (filters.size && filters.size.length > 0)
       queryParams.append("size", filters.size.join(","));
-    
-    // Price and Sorting
     if (filters.minPrice) queryParams.append("minPrice", filters.minPrice);
     if (filters.maxPrice) queryParams.append("maxPrice", filters.maxPrice);
     if (filters.sort) queryParams.append("sort", filters.sort);
-
-    // CRITICAL: Pagination Support
     if (filters.page) queryParams.append("pageNumber", filters.page);
 
     const url = `${PRODUCTS_URL}?${queryParams.toString()}`;
@@ -45,6 +46,28 @@ export const fetchAllProducts = async (filters = {}) => {
   }
 };
 
+/**
+ * NEW: Delete Product (Admin Only)
+ */
+export const deleteProductApi = async (id) => {
+  try {
+    const token = getAuthToken();
+    const response = await fetch(`${PRODUCTS_URL}/${id}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      },
+    });
+    return await handleResponse(response);
+  } catch (error) {
+    console.error(`Delete failed for product ${id}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch Product By ID
+ */
 export const fetchProductById = async (id) => {
   try {
     const url = `${PRODUCTS_URL}/${id}`;
@@ -56,32 +79,28 @@ export const fetchProductById = async (id) => {
   }
 };
 
+/**
+ * Fetch Related Products
+ */
 export const fetchRelatedProducts = async (id) => {
   try {
     const url = `${PRODUCTS_URL}/${id}/related`;
     const response = await fetch(url);
     return await handleResponse(response);
   } catch (error) {
-    return []; // Return empty array to prevent UI crashes if related items fail
+    return []; 
   }
 };
 
 /**
  * Add Product Review
- * Updated: Unified token support for authenticated reviews.
  */
 export const addProductReviewApi = async (productId, reviewData) => {
   try {
-    const userInfo = localStorage.getItem("userInfo");
-    const adminInfo = localStorage.getItem("godspeaks_admin");
-    const token = adminInfo ? JSON.parse(adminInfo).token : (userInfo ? JSON.parse(userInfo).token : null);
-
+    const token = getAuthToken();
     const url = `${PRODUCTS_URL}/${productId}/reviews`;
-    const headers = {
-        "Authorization": `Bearer ${token}`
-    };
+    const headers = { "Authorization": `Bearer ${token}` };
 
-    // If sending standard JSON (most common)
     if (!(reviewData instanceof FormData)) {
         headers["Content-Type"] = "application/json";
     }
@@ -98,6 +117,9 @@ export const addProductReviewApi = async (productId, reviewData) => {
   }
 };
 
+/**
+ * Join Waitlist
+ */
 export const joinWaitlistApi = async (id, email) => {
   try {
     const url = `${PRODUCTS_URL}/${id}/waitlist`;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Table, Button, Container, Row, Col, Image, Spinner, Pagination, Badge } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { fetchAllProducts, deleteProductApi } from '../../api/productApi'; // Ensure delete API is exported
+import { fetchAllProducts, deleteProductApi } from '../../api/productsApi'; // Ensure delete API is exported
 
 const ProductList = () => {
   const [products, setProducts] = useState([]);

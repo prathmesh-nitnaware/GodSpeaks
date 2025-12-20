@@ -1,189 +1,166 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { fetchDashboardStatsApi } from '../../api/adminApi'; // Import API
+import { fetchDashboardStatsApi } from '../../api/adminApi';
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Card, Button, Alert, Spinner } from 'react-bootstrap';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, BarChart, Bar, Cell 
+} from 'recharts';
+import { FaBox, FaClipboardList, FaRupeeSign, FaArrowUp } from 'react-icons/fa';
 
 const AdminDashboard = () => {
   const { adminInfo, logout } = useAuth();
-  
-  // State for real data
   const [stats, setStats] = useState({
-      totalRevenue: 0,
-      totalOrders: 0,
-      totalProducts: 0,
-      salesData: [],
-      categoryData: []
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalProducts: 0,
+    salesData: [],
+    categoryData: []
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-      const loadStats = async () => {
-          try {
-              const data = await fetchDashboardStatsApi();
-              setStats(data);
-          } catch (err) {
-              console.error(err);
-              setError("Failed to load dashboard analytics.");
-          } finally {
-              setLoading(false);
-          }
-      };
-      loadStats();
+    const loadStats = async () => {
+      try {
+        const data = await fetchDashboardStatsApi();
+        setStats(data);
+      } catch (err) {
+        setError("Failed to load dashboard analytics. Please check your backend connection.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStats();
   }, []);
 
   if (loading) return (
-      <Container className="d-flex justify-content-center align-items-center vh-100">
-          <Spinner animation="border" variant="primary" />
-      </Container>
+    <Container className="d-flex justify-content-center align-items-center vh-100">
+      <Spinner animation="border" variant="primary" />
+    </Container>
   );
 
+  // Colors for Bar Chart
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
   return (
-    <Container className="py-5">
-      
+    <Container className="py-4">
       {/* --- Header --- */}
-      <Row className="justify-content-between align-items-center mb-4">
-        <Col>
-          <h1 className="display-5 fw-bold text-dark">Admin Dashboard</h1>
-        </Col>
-        <Col xs="auto">
-          <Button variant="outline-danger" onClick={logout}>
-            Sign Out
-          </Button>
-        </Col>
-      </Row>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 className="fw-bold text-dark mb-1">GodSpeaks Analytics</h1>
+          <p className="text-muted">Overview of your print-on-demand performance.</p>
+        </div>
+        <Button variant="outline-dark" size="sm" onClick={logout} className="fw-bold px-3">
+          Sign Out
+        </Button>
+      </div>
 
-      {/* --- Welcome Message --- */}
-      <Alert variant="info" className="shadow-sm border-0 bg-info-subtle text-info-emphasis mb-5">
-        <Alert.Heading as="h4" className="fw-bold">
-          Welcome, {adminInfo?.email}!
-        </Alert.Heading>
-        <p className="mb-0">
-          Here is your store's performance overview.
-        </p>
-      </Alert>
+      {error && <Alert variant="danger" className="border-0 shadow-sm">{error}</Alert>}
 
-      {/* --- Quick Stats Cards --- */}
-      <Row className="gy-4 mb-5">
-          <Col md={4}>
-              <Card className="shadow-sm border-0 bg-primary text-white h-100">
-                  <Card.Body className="text-center p-4">
-                      <h3>Total Revenue</h3>
-                      <h1 className="fw-bold display-6">₹{(stats.totalRevenue / 100).toLocaleString()}</h1>
-                  </Card.Body>
-              </Card>
-          </Col>
-          <Col md={4}>
-              <Card className="shadow-sm border-0 bg-success text-white h-100">
-                  <Card.Body className="text-center p-4">
-                      <h3>Total Orders</h3>
-                      <h1 className="fw-bold display-6">{stats.totalOrders}</h1>
-                  </Card.Body>
-              </Card>
-          </Col>
-          <Col md={4}>
-              <Card className="shadow-sm border-0 bg-warning text-dark h-100">
-                  <Card.Body className="text-center p-4">
-                      <h3>Total Products</h3>
-                      <h1 className="fw-bold display-6">{stats.totalProducts}</h1>
-                  </Card.Body>
-              </Card>
-          </Col>
-      </Row>
-
-      {/* --- Navigation Blocks --- */}
-      <Row className="gy-4">
-        <Col md={6}>
-          <Card as={Link} to="/admin/products" className="h-100 shadow-sm text-decoration-none text-dark border-0 hover-shadow transition">
-            <Card.Body className="d-flex flex-column align-items-center text-center p-4">
-              <Card.Title as="h3" className="fw-bold fs-4 mb-3">Manage Products</Card.Title>
-              <Card.Text className="text-muted">Manage inventory, sizes, and POD items.</Card.Text>
+      {/* --- Quick Stats --- */}
+      <Row className="gy-4 mb-4">
+        <Col md={4}>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <div className="d-flex justify-content-between">
+                <div>
+                  <p className="text-muted small fw-bold text-uppercase mb-1">Total Revenue</p>
+                  <h2 className="fw-bold">₹{(stats.totalRevenue / 100).toLocaleString()}</h2>
+                  <span className="text-success small fw-bold"><FaArrowUp /> +12% growth</span>
+                </div>
+                <div className="bg-primary-subtle p-3 rounded-circle text-primary h-50">
+                  <FaRupeeSign size={24} />
+                </div>
+              </div>
             </Card.Body>
           </Card>
         </Col>
-
-        <Col md={6}>
-          <Card as={Link} to="/admin/orders" className="h-100 shadow-sm text-decoration-none text-dark border-0 hover-shadow transition">
-            <Card.Body className="d-flex flex-column align-items-center text-center p-4">
-              <Card.Title as="h3" className="fw-bold fs-4 mb-3">View Orders</Card.Title>
-              <Card.Text className="text-muted">Process customer orders and download artwork.</Card.Text>
+        <Col md={4}>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <div className="d-flex justify-content-between">
+                <div>
+                  <p className="text-muted small fw-bold text-uppercase mb-1">Total Orders</p>
+                  <h2 className="fw-bold">{stats.totalOrders}</h2>
+                  <Link to="/admin/orders" className="small text-decoration-none">View all orders</Link>
+                </div>
+                <div className="bg-success-subtle p-3 rounded-circle text-success h-50">
+                  <FaClipboardList size={24} />
+                </div>
+              </div>
+            </Card.Body>
+          </Card>
+        </Col>
+        <Col md={4}>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <div className="d-flex justify-content-between">
+                <div>
+                  <p className="text-muted small fw-bold text-uppercase mb-1">Products</p>
+                  <h2 className="fw-bold">{stats.totalProducts}</h2>
+                  <Link to="/admin/products" className="small text-decoration-none">Manage inventory</Link>
+                </div>
+                <div className="bg-warning-subtle p-3 rounded-circle text-warning h-50">
+                  <FaBox size={24} />
+                </div>
+              </div>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      {/* --- Charts Section --- */}
-      <Row className="mt-5 g-4">
-        
-        {/* 1. Sales Overview (Line Chart) */}
+      {/* --- Charts --- */}
+      <Row className="g-4">
         <Col lg={8}>
-            <Card className="shadow-sm border-0 h-100">
-                <Card.Body className="p-4">
-                    <Card.Title className="fw-bold mb-4">Sales Trends (6 Months)</Card.Title>
-                    {stats.salesData.length > 0 ? (
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer>
-                                <LineChart data={stats.salesData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                                    <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
-                                    <Tooltip 
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
-                                        formatter={(value) => [`₹${(value/100).toFixed(2)}`, 'Revenue']}
-                                    />
-                                    <Line 
-                                        type="monotone" 
-                                        dataKey="sales" 
-                                        stroke="#0d6efd" 
-                                        strokeWidth={3} 
-                                        dot={{ r: 4, fill: '#0d6efd', strokeWidth: 2, stroke: '#fff' }} 
-                                        activeDot={{ r: 7 }} 
-                                    />
-                                </LineChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <p className="text-muted text-center py-5">No sales data available yet.</p>
-                    )}
-                </Card.Body>
-            </Card>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <Card.Title className="fw-bold mb-4">Revenue Trend (Paisa to Rupee Conversion)</Card.Title>
+              <div style={{ width: '100%', height: 350 }}>
+                <ResponsiveContainer>
+                  <LineChart data={stats.salesData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
+                    <YAxis 
+                      axisLine={false} 
+                      tickLine={false} 
+                      tick={{fill: '#999', fontSize: 12}} 
+                      tickFormatter={(value) => `₹${value / 100000}k`} 
+                    />
+                    <Tooltip 
+                      formatter={(value) => [`₹${(value / 100).toLocaleString()}`, 'Revenue']}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
+                    />
+                    <Line type="monotone" dataKey="sales" stroke="#0d6efd" strokeWidth={4} dot={{ r: 6, fill: '#0d6efd', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </Card.Body>
+          </Card>
         </Col>
 
-        {/* 2. Top Categories (Bar Chart) */}
         <Col lg={4}>
-            <Card className="shadow-sm border-0 h-100">
-                <Card.Body className="p-4">
-                    <Card.Title className="fw-bold mb-4">Product Distribution</Card.Title>
-                    {stats.categoryData.length > 0 ? (
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer>
-                                <BarChart data={stats.categoryData} layout="vertical" margin={{ left: 0, right: 10 }}>
-                                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#eee" />
-                                    <XAxis type="number" hide />
-                                    <YAxis 
-                                        dataKey="name" 
-                                        type="category" 
-                                        width={80} 
-                                        stroke="#555" 
-                                        fontSize={13} 
-                                        tickLine={false} 
-                                        axisLine={false} 
-                                    />
-                                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                                    <Bar dataKey="count" fill="#ffc107" radius={[0, 4, 4, 0]} barSize={24} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    ) : (
-                        <p className="text-muted text-center py-5">No products found.</p>
-                    )}
-                </Card.Body>
-            </Card>
+          <Card className="shadow-sm border-0 h-100">
+            <Card.Body className="p-4">
+              <Card.Title className="fw-bold mb-4">Product Categories</Card.Title>
+              <div style={{ width: '100%', height: 350 }}>
+                <ResponsiveContainer>
+                  <BarChart data={stats.categoryData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 11}} />
+                    <Tooltip cursor={{fill: '#f8f9fa'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                    <Bar dataKey="count" radius={[10, 10, 0, 0]} barSize={35}>
+                      {stats.categoryData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </Card.Body>
+          </Card>
         </Col>
       </Row>
-
     </Container>
   );
 };

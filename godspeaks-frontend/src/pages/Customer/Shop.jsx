@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Container, Row, Col, Spinner, Form, InputGroup, Button, Card, Pagination } from "react-bootstrap";
 import ProductCard from "../../components/Products/ProductCard";
 import ProductFilter from "../../components/Products/ProductFilter";
-import { fetchAllProducts } from "../../api/productApi"; // Ensure correct import path
+import { fetchAllProducts } from "../../api/productsApi"; // Fixed plural and path
 import { motion } from "framer-motion";
 import { Link } from 'react-router-dom';
 
@@ -24,9 +24,8 @@ const Shop = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showMobileFilter, setShowMobileFilter] = useState(false);
-  const productGridRef = useRef(null); // Ref for auto-scrolling
+  const productGridRef = useRef(null); 
   
-  // Pagination and Stats
   const [pages, setPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
 
@@ -46,7 +45,7 @@ const Shop = () => {
         setIsLoading(true);
         setError(null);
         
-        // Data contains: { products, page, pages, totalOrders/total }
+        // Pass keyword as the search filter for the new Text Search backend
         const data = await fetchAllProducts(filters);
         
         if (data.products) {
@@ -57,7 +56,6 @@ const Shop = () => {
             setProducts(data); 
         }
 
-        // --- NEW: Smooth scroll back to top of grid on page change ---
         if (filters.page > 1 && productGridRef.current) {
             productGridRef.current.scrollIntoView({ behavior: 'smooth' });
         }
@@ -69,12 +67,11 @@ const Shop = () => {
       }
     };
 
-    const timer = setTimeout(() => { getProducts(); }, 400); // Debounce search
+    const timer = setTimeout(() => { getProducts(); }, 400); 
     return () => clearTimeout(timer);
   }, [filters]);
 
   const handleFilterChange = (key, value) => { 
-      // Reset to page 1 for any change except pagination itself
       if (key !== 'page') {
           setFilters((prev) => ({ ...prev, [key]: value, page: 1 }));
       } else {
@@ -98,7 +95,6 @@ const Shop = () => {
         <p className="text-muted fs-5">Premium faith-based apparel, printed just for you.</p>
       </div>
 
-      {/* Search Bar */}
       <Row className="justify-content-center mb-5">
         <Col md={8} lg={6}>
           <InputGroup size="lg" className="shadow-sm border rounded-pill overflow-hidden">
@@ -121,7 +117,6 @@ const Shop = () => {
       </Row>
 
       <Row>
-        {/* Filter Sidebar */}
         <Col lg={3} className={`mb-4 ${showMobileFilter ? "d-block" : "d-none d-lg-block"}`}>
           <ProductFilter filters={filters} onFilterChange={handleFilterChange} onClearFilters={clearFilters} />
           
@@ -134,12 +129,10 @@ const Shop = () => {
           </Card>
         </Col>
 
-        {/* Product Grid */}
         <Col lg={9} ref={productGridRef}>
           <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom">
             <span className="text-muted fw-medium">{totalProducts} Items Found</span>
             <div className="d-flex align-items-center">
-              <span className="me-2 text-muted small d-none d-sm-block">Sort:</span>
               <Form.Select 
                 size="sm" 
                 className="border-0 bg-light fw-bold" 
@@ -180,7 +173,6 @@ const Shop = () => {
                   </Row>
                 </motion.div>
 
-                {/* Pagination Controls */}
                 {pages > 1 && (
                   <div className="d-flex justify-content-center mt-5">
                     <Pagination className="shadow-sm">
