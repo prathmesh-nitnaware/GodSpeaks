@@ -13,80 +13,67 @@ const reviewSchema = new mongoose.Schema(
       ref: "Customer",
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
 // --- MAIN PRODUCT SCHEMA ---
 const ProductSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true,
+    name: { 
+      type: String, 
+      required: true, 
+      trim: true 
     },
-    description: {
-      type: String,
-      required: true,
-      maxlength: 1000,
+    description: { 
+      type: String, 
+      required: false, // Optional as requested
+      default: "", 
+      maxlength: 1000 
     },
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
+    price: { 
+      type: Number, 
+      required: true, 
+      min: 0 
     },
-    images: [
-      {
-        type: String,
-        required: true,
-      },
-    ],
-    color: {
-      type: String,
+    images: {
+      type: [String], 
       required: true,
-      default: "Black", 
+      validate: {
+        validator: (v) => Array.isArray(v) && v.length > 0,
+        message: 'At least one product image is required'
+      }
     },
-    // --- POD SPECIFIC CHANGE ---
-    // We don't track numbers (0, 10, 20). 
-    // We only track IF we can print it (True/False).
+    color: { 
+      type: String, 
+      required: true, 
+      default: "Black" 
+    },
     sizes: [
       {
         size: { 
-            type: String, 
-            enum: ["S", "M", "L", "XL", "XXL", "3XL"],
-            required: true 
+          type: String, 
+          enum: ["S", "M", "L", "XL", "XXL", "3XL"],
+          required: true 
         },
-        available: { 
-            type: Boolean, 
-            default: true // Defaults to "Yes, we can print this"
-        }
+        available: { type: Boolean, default: true }
       },
     ],
     reviews: [reviewSchema],
-    rating: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-    numReviews: {
-      type: Number,
-      required: true,
-      default: 0,
-    },
-    isAvailable: {
-      type: Boolean,
-      default: true,
-    },
-    podId: {
-      type: String,
-      default: null,
-    },
+    rating: { type: Number, required: true, default: 0 },
+    numReviews: { type: Number, required: true, default: 0 },
+    isAvailable: { type: Boolean, default: true },
+    podId: { type: String, default: null },
+    user: { 
+      type: mongoose.Schema.Types.ObjectId, 
+      ref: "Admin", // Should match your authMiddleware's search collection
+      required: true 
+    }
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
+// CRITICAL: Text index allows optimized keyword search
+ProductSchema.index({ name: 'text', description: 'text' });
+
 const Product = mongoose.model("Product", ProductSchema);
-module.exports = Product; 
+module.exports = Product;

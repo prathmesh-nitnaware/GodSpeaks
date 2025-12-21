@@ -6,19 +6,19 @@ const API_URL = `${API_BASE_URL}/api/orders`;
 
 /**
  * Helper: Centralized Authorization Headers
- * Standardizes token retrieval for both Customer and Admin roles.
+ * Ensures the most recent token is pulled from storage before every request.
  */
 const getAuthHeaders = () => {
     const userInfo = localStorage.getItem('userInfo');
     const adminInfo = localStorage.getItem('godspeaks_admin');
     
-    // Check for admin token first if it exists, otherwise use customer token
+    // Prioritize admin token for fulfillment tasks, fallback to customer token
     const token = adminInfo ? JSON.parse(adminInfo).token : (userInfo ? JSON.parse(userInfo).token : null);
     
     return {
         headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`, // If token is null, backend returns 401
         },
     };
 };
@@ -52,8 +52,7 @@ export const fetchMyOrdersApi = async () => {
 
 // --- ADMIN DASHBOARD FUNCTIONS ---
 /**
- * Updated: Support for Paginated Orders
- * @param {number} page - The current page number to fetch.
+ * Support for Paginated Orders with Auth Headers
  */
 export const getAllOrdersApi = async (page = 1) => {
     const { data } = await axios.get(`${API_URL}?pageNumber=${page}`, getAuthHeaders());
