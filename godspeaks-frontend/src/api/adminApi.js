@@ -1,56 +1,74 @@
 import axios from 'axios';
 
 // --- CONFIGURATION ---
-// Use the environment variable we set up earlier
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const PRODUCT_URL = `${API_BASE_URL}/api/products`;
 const ANALYTICS_URL = `${API_BASE_URL}/api/analytics`;
 
-// --- HELPER: Get Auth Header ---
-const getAuthHeaders = () => {
-  // --- FIX: Look for 'godspeaks_admin', NOT 'userInfo' ---
-  const adminInfo = localStorage.getItem('godspeaks_admin');
-  const token = adminInfo ? JSON.parse(adminInfo).token : null;
-  
-  return {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      // Note: We do NOT set 'Content-Type' manually here because 
-      // when sending FormData (for image uploads), axios sets it automatically.
-    },
-  };
+/**
+ * Helper: Centralized Authorization Headers
+ * Accepts an explicit token to ensure high reliability during session transitions.
+ */
+const getAuthHeaders = (isFormData = false, manualToken = null) => {
+    const adminInfo = localStorage.getItem('godspeaks_admin');
+    const token = manualToken || (adminInfo ? JSON.parse(adminInfo).token : null);
+    
+    // DEBUG: Check your console. If this says 'Bearer null', your login is failing
+    console.log("Sending Token:", token ? "Token Exists" : "TOKEN IS NULL");
+
+    const headers = {
+        Authorization: `Bearer ${token}`, 
+    };
+
+    if (!isFormData) {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    return { headers };
 };
 
 // --- PRODUCT API FUNCTIONS ---
 
-// 1. Create Product (Expects FormData)
-export const createProductApi = async (productData) => {
-  const { data } = await axios.post(PRODUCT_URL, productData, getAuthHeaders());
-  return data;
+/**
+ * Create Product (Admin Only)
+ * Now requires the token as an argument to bypass localStorage race conditions.
+ */
+export const createProductApi = async (productData, token) => {
+    const { data } = await axios.post(PRODUCT_URL, productData, getAuthHeaders(true, token));
+    return data;
 };
 
-// 2. Update Product (Expects FormData)
-export const updateProductApi = async (id, productData) => {
-  const { data } = await axios.put(`${PRODUCT_URL}/${id}`, productData, getAuthHeaders());
-  return data;
+/**
+ * Update Product (Admin Only)
+ */
+export const updateProductApi = async (id, productData, token) => {
+    const { data } = await axios.put(`${PRODUCT_URL}/${id}`, productData, getAuthHeaders(true, token));
+    return data;
 };
 
-// 3. Delete Product
-export const deleteProductApi = async (id) => {
-  const { data } = await axios.delete(`${PRODUCT_URL}/${id}`, getAuthHeaders());
-  return data;
+/**
+ * Delete Product (Admin Only)
+ */
+export const deleteProductApi = async (id, token) => {
+    const { data } = await axios.delete(`${PRODUCT_URL}/${id}`, getAuthHeaders(false, token));
+    return data;
 };
 
-// 4. Fetch All Products (Admin View)
-export const fetchAllProductsAdmin = async () => {
-  const { data } = await axios.get(PRODUCT_URL); 
-  return data.products || data;
+/**
+ * Fetch All Products (Admin View)
+ * Publicly accessible but returns full pagination metadata.
+ */
+export const fetchAllProductsAdmin = async (pageNumber = 1) => {
+    const { data } = await axios.get(`${PRODUCT_URL}?pageNumber=${pageNumber}`); 
+    return data; 
 };
 
 // --- ANALYTICS API FUNCTIONS ---
 
-// 5. Fetch Admin Dashboard Stats
-export const fetchDashboardStatsApi = async () => {
-  const { data } = await axios.get(ANALYTICS_URL, getAuthHeaders());
-  return data;
+/**
+ * Fetch Admin Dashboard Stats
+ */
+export const fetchDashboardStatsApi = async (token) => {
+    const { data } = await axios.get(ANALYTICS_URL, getAuthHeaders(false, token));
+    return data;
 };

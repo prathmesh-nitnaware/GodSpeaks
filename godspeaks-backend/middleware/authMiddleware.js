@@ -3,59 +3,42 @@ const Admin = require('../models/Admin');
 const Customer = require('../models/Customer'); 
 
 const protect = async (req, res, next) => {
-  let token;
+    let token;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+        try {
+            token = req.headers.authorization.split(' ')[1];
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-  if (
-    req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
-  ) {
-    try {
-      // Get token from header
-      token = req.headers.authorization.split(' ')[1];
+            // 1. Search for the ID in both collections
+            let user = await Admin.findById(decoded.id).select('-password');
+            if (!user) {
+                user = await Customer.findById(decoded.id).select('-password');
+            }
 
-      // CHECK: If token string is "undefined" or "null" (common frontend bugs)
-      if (!token || token === 'undefined' || token === 'null') {
-          return res.status(401).json({ message: 'Not authorized, invalid token' });
-      }
+            if (!user) {
+                return res.status(401).json({ message: 'User not found' });
+            }
 
-      // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-      // Check if user is Admin
-      let user = await Admin.findById(decoded.id).select('-password');
-      
-      // If not Admin, check if Customer
-      if (!user) {
-          user = await Customer.findById(decoded.id).select('-password');
-      }
-
-      if (!user) {
-          return res.status(401).json({ message: 'Not authorized, user not found' });
-      }
-
-      req.user = user;
-      next();
-    } catch (error) {
-      console.error("Auth Middleware Error:", error.message);
-      // Specific handling for malformed JWT to avoid server crash
-      if (error.name === 'JsonWebTokenError') {
-          return res.status(401).json({ message: 'Not authorized, token failed' });
-      }
-      if (error.name === 'TokenExpiredError') {
-          return res.status(401).json({ message: 'Not authorized, token expired' });
-      }
-      res.status(401).json({ message: 'Not authorized' });
+            req.user = user; // This attaches the user object to the request
+            next();
+        } catch (error) {
+            return res.status(401).json({ message: 'Token failed' });
+        }
+    } else {
+        res.status(401).json({ message: 'No token found' });
     }
-  } else {
-    res.status(401).json({ message: 'Not authorized, no token' });
-  }
 };
 
 const admin = (req, res, next) => {
-  if (req.user && req.user.isAdmin) {
+  if (req.user && (
+      req.user.role === 'admin' || 
+      req.user.role === 'superadmin' || // ADDED: Matches your specific DB role
+      req.user.isAdmin === true
+  )) {
     next();
   } else {
-    res.status(401).json({ message: 'Not authorized as an admin' });
+    // This is where the 401 error was being generated
+    res.status(401).json({ message: 'Not authorized as an admin or superadmin' });
   }
 };
 
