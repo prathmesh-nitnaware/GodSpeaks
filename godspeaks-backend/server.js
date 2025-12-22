@@ -20,6 +20,8 @@ const cartRoutes = require('./routes/cartRoutes');
 connectDB(); 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // --- 2. SECURITY & RATE LIMITING ---
 
 // Global Rate Limiter: 100 requests per 15 minutes per IP
