@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com';
 const PRODUCT_URL = `${API_BASE_URL}/api/products`;
 const ANALYTICS_URL = `${API_BASE_URL}/api/analytics`;
 
