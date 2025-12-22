@@ -1,6 +1,12 @@
-// --- FIXED: Use Environment Variable ---
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-const API_URL = `${API_BASE_URL}/api/auth`;
+/**
+ * GodSpeaks Authentication API
+ * Configured for Production (Render) and Local Development
+ */
+
+// --- DYNAMIC API URL ---
+// Netlify will use REACT_APP_API_URL if set; otherwise, it defaults to localhost
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com'; 
+const API_URL = `${API_BASE_URL}/api/auth`; //
 
 /**
  * Logs in the user (Admin or Customer).
@@ -17,6 +23,7 @@ export const loginApi = async (email, password) => {
     if (!response.ok) throw new Error(data.message || "Login failed");
     return data;
   } catch (error) {
+    console.error("Login API Error:", error); // Added for easier debugging
     throw error;
   }
 };
@@ -43,6 +50,7 @@ export const registerApi = async (email, password) => {
 
     return data;
   } catch (error) {
+    console.error("Registration API Error:", error);
     throw error;
   }
 };
