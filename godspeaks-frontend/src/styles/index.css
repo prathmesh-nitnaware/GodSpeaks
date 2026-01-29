@@ -1,19 +1,15 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* --- 1. GLOBAL SCALE REDUCTION --- */
+/* --- 1. RESPONSIVE TYPOGRAPHY --- */
 html {
-  /* Default browser font-size is 16px. 
-     Setting this to 85% makes the base size ~13.6px.
-     Since Bootstrap uses 'rem' units, this scales down 
-     all buttons, inputs, spacing, and text automatically.
-  */
-  font-size: 82%; 
+  /* On Desktop: 14px base size (87.5% of 16px) */
+  font-size: 87.5%; 
 }
 
-/* On very small mobile screens, we can bump it back up slightly for readability */
-@media (max-width: 576px) {
+@media (max-width: 768px) {
   html {
-    font-size: 90%;
+    /* On Mobile: Bump it up to 15-16px so it's readable without zooming */
+    font-size: 95%; 
   }
 }
 
@@ -26,25 +22,42 @@ body {
   -moz-osx-font-smoothing: grayscale;
   background-color: #f8f9fa; /* Light Gray Background */
   
-  /* Ensure content fills height */
+  /* Ensure content fills height (Sticky Footer setup) */
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+
+main {
+    flex: 1; /* Pushes footer to bottom */
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New', monospace;
 }
 
-/* --- Utility Classes --- */
+/* --- UTILITY CLASSES --- */
 
 /* Hover effects for cards */
 .hover-shadow:hover {
-  transform: translateY(-3px); /* Reduced movement for subtler effect */
-  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+  transform: translateY(-3px); 
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08) !important;
+  transition: all 0.3s ease;
 }
 
 .transition {
   transition: all 0.3s ease-in-out;
+}
+
+.cursor-pointer {
+    cursor: pointer;
 }
 
 /* Dashed Border for Empty States */
@@ -53,26 +66,36 @@ code {
 }
 
 /* --- Custom Scrollbar --- */
-/* Makes the scrollbar thinner and cleaner */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
   background: #f1f1f1; 
 }
 ::-webkit-scrollbar-thumb {
-  background: #ccc; 
-  border-radius: 4px;
+  background: #cbd5e0; 
+  border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #aaa; 
+  background: #a0aec0; 
 }
 
-/* --- Bootstrap Overrides (Optional Polish) --- */
+/* --- Bootstrap Overrides --- */
 .btn {
-    font-weight: 500; /* Slightly bolder buttons */
+    font-weight: 500; 
 }
 .card {
-    border: none; /* Remove default card borders for cleaner look */
+    border: none; 
+}
+
+/* --- Responsive Canvas for Custom Print Page --- */
+.design-canvas-container {
+    min-height: 550px;
+}
+
+@media (max-width: 768px) {
+    .design-canvas-container {
+        min-height: 350px; /* Smaller height on mobile to fit screen */
+    }
 }

@@ -24,16 +24,29 @@ const AdminDashboard = () => {
   useEffect(() => {
     const loadStats = async () => {
       try {
-        const data = await fetchDashboardStatsApi();
+        // UPDATED: Pass the token explicitly to the API
+        const token = adminInfo ? adminInfo.token : null;
+        if (!token) return;
+
+        const data = await fetchDashboardStatsApi(token);
         setStats(data);
       } catch (err) {
-        setError("Failed to load dashboard analytics. Please check your backend connection.");
+        console.error(err);
+        // If 401, it means token expired
+        if (err.message.includes('401')) {
+            setError("Session expired. Please logout and login again.");
+        } else {
+            setError("Failed to load dashboard analytics.");
+        }
       } finally {
         setLoading(false);
       }
     };
-    loadStats();
-  }, []);
+    
+    if (adminInfo) {
+        loadStats();
+    }
+  }, [adminInfo]);
 
   if (loading) return (
     <Container className="d-flex justify-content-center align-items-center vh-100">
@@ -112,29 +125,36 @@ const AdminDashboard = () => {
       </Row>
 
       {/* --- Charts --- */}
+      {/* Only render charts if we have data to avoid width(-1) errors */}
       <Row className="g-4">
         <Col lg={8}>
           <Card className="shadow-sm border-0 h-100">
             <Card.Body className="p-4">
-              <Card.Title className="fw-bold mb-4">Revenue Trend (Paisa to Rupee Conversion)</Card.Title>
+              <Card.Title className="fw-bold mb-4">Revenue Trend</Card.Title>
               <div style={{ width: '100%', height: 350 }}>
-                <ResponsiveContainer>
-                  <LineChart data={stats.salesData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
-                    <YAxis 
-                      axisLine={false} 
-                      tickLine={false} 
-                      tick={{fill: '#999', fontSize: 12}} 
-                      tickFormatter={(value) => `₹${value / 100000}k`} 
-                    />
-                    <Tooltip 
-                      formatter={(value) => [`₹${(value / 100).toLocaleString()}`, 'Revenue']}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
-                    />
-                    <Line type="monotone" dataKey="sales" stroke="#0d6efd" strokeWidth={4} dot={{ r: 6, fill: '#0d6efd', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
-                  </LineChart>
-                </ResponsiveContainer>
+                {stats.salesData && stats.salesData.length > 0 ? (
+                    <ResponsiveContainer>
+                    <LineChart data={stats.salesData}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 12}} />
+                        <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#999', fontSize: 12}} 
+                        tickFormatter={(value) => `₹${value / 100000}k`} 
+                        />
+                        <Tooltip 
+                        formatter={(value) => [`₹${(value / 100).toLocaleString()}`, 'Revenue']}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }}
+                        />
+                        <Line type="monotone" dataKey="sales" stroke="#0d6efd" strokeWidth={4} dot={{ r: 6, fill: '#0d6efd', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 8 }} />
+                    </LineChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-100 d-flex align-items-center justify-content-center text-muted">
+                        No sales data available yet.
+                    </div>
+                )}
               </div>
             </Card.Body>
           </Card>
@@ -145,17 +165,23 @@ const AdminDashboard = () => {
             <Card.Body className="p-4">
               <Card.Title className="fw-bold mb-4">Product Categories</Card.Title>
               <div style={{ width: '100%', height: 350 }}>
-                <ResponsiveContainer>
-                  <BarChart data={stats.categoryData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 11}} />
-                    <Tooltip cursor={{fill: '#f8f9fa'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
-                    <Bar dataKey="count" radius={[10, 10, 0, 0]} barSize={35}>
-                      {stats.categoryData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                {stats.categoryData && stats.categoryData.length > 0 ? (
+                    <ResponsiveContainer>
+                    <BarChart data={stats.categoryData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#999', fontSize: 11}} />
+                        <Tooltip cursor={{fill: '#f8f9fa'}} contentStyle={{ borderRadius: '12px', border: 'none' }} />
+                        <Bar dataKey="count" radius={[10, 10, 0, 0]} barSize={35}>
+                        {stats.categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                        </Bar>
+                    </BarChart>
+                    </ResponsiveContainer>
+                ) : (
+                    <div className="h-100 d-flex align-items-center justify-content-center text-muted">
+                        No category data.
+                    </div>
+                )}
               </div>
             </Card.Body>
           </Card>

@@ -1,79 +1,98 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
-// --- SUB-SCHEMA: REVIEWS ---
-const reviewSchema = new mongoose.Schema(
-  {
+const reviewSchema = mongoose.Schema({
     name: { type: String, required: true },
     rating: { type: Number, required: true },
     comment: { type: String, required: true },
-    image: { type: String },
+    user: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Customer' },
+}, {
+    timestamps: true,
+});
+
+const productSchema = mongoose.Schema({
     user: {
-      type: mongoose.Schema.Types.ObjectId,
-      required: true,
-      ref: "Customer",
+        type: mongoose.Schema.Types.ObjectId,
+        required: true,
+        ref: 'Admin',
     },
-  },
-  { timestamps: true }
-);
-
-// --- MAIN PRODUCT SCHEMA ---
-const ProductSchema = new mongoose.Schema(
-  {
-    name: { 
-      type: String, 
-      required: true, 
-      trim: true 
+    name: {
+        type: String,
+        required: true,
     },
-    description: { 
-      type: String, 
-      required: false, // Optional as requested
-      default: "", 
-      maxlength: 1000 
+    images: [{ // Array of image URLs
+        type: String,
+        required: true,
+    }],
+    description: {
+        type: String,
+        required: false, 
+        default: ""
     },
-    price: { 
-      type: Number, 
-      required: true, 
-      min: 0 
+    brand: {
+        type: String,
+        required: false, 
+        default: "GodSpeaks"
     },
-    images: {
-      type: [String], 
-      required: true,
-      validate: {
-        validator: (v) => Array.isArray(v) && v.length > 0,
-        message: 'At least one product image is required'
-      }
+    category: {
+        type: String,
+        required: false, 
+        default: "Apparel"
     },
+    // Primary Display Color (for Cards/Shop Page)
     color: { 
-      type: String, 
-      required: true, 
-      default: "Black" 
+        type: String, 
+        required: true, 
+        default: 'Black'
     },
-    sizes: [
-      {
-        size: { 
-          type: String, 
-          enum: ["S", "M", "L", "XL", "XXL", "3XL"],
-          required: true 
-        },
+    // NEW: Available Color Variants (for Product Detail Page)
+    availableColors: [{
+        name: { type: String, required: true },
+        hex: { type: String, required: true }
+    }],
+    price: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    countInStock: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    sizes: [{
+        size: { type: String, enum: ['S', 'M', 'L', 'XL', 'XXL', '3XL'] },
         available: { type: Boolean, default: true }
-      },
-    ],
+    }],
     reviews: [reviewSchema],
-    rating: { type: Number, required: true, default: 0 },
-    numReviews: { type: Number, required: true, default: 0 },
-    isAvailable: { type: Boolean, default: true },
-    podId: { type: String, default: null },
-    user: { 
-      type: mongoose.Schema.Types.ObjectId, 
-      ref: "Admin", // Should match your authMiddleware's search collection
-      required: true 
+    rating: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    numReviews: {
+        type: Number,
+        required: true,
+        default: 0,
+    },
+    isAvailable: {
+        type: Boolean,
+        default: true
+    },
+    stockStatus: {
+        type: String,
+        enum: ['in-stock', 'out-of-stock', 'pre-order'],
+        default: 'in-stock'
+    },
+    preOrderReleaseDate: {
+        type: Date
     }
-  },
-  { timestamps: true }
-);
+}, {
+    timestamps: true,
+});
 
-// CRITICAL: Text index allows optimized keyword search
-ProductSchema.index({ name: 'text', description: 'text' });
+// Create Text Index for Search
+productSchema.index({ name: 'text', description: 'text' });
 
-const Product = mongoose.model("Product", ProductSchema);
+const Product = mongoose.model('Product', productSchema);
+
 module.exports = Product;
