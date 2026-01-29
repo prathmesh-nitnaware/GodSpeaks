@@ -1,136 +1,287 @@
-import React, { useState } from 'react';
-import { createProductApi } from '../../api/adminApi';
-import { Form, Button, Row, Col, Spinner, Alert, InputGroup } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Form, Button, Row, Col, Image, Container, Badge } from 'react-bootstrap';
+import { useNavigate, useParams } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 
-const ALL_SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
+const SIZES = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 
-const ProductForm = ({ onProductCreated }) => {
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    color: '#000000', // Default Hex for the picker
-  });
-  
-  const [selectedSizes, setSelectedSizes] = useState(['S', 'M', 'L', 'XL', 'XXL']); 
-  const [images, setImages] = useState(null); 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+// --- CONFIGURATION ---
+const isLocal = window.location.hostname === 'localhost';
+const API_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://godspeaks.onrender.com';
 
-  const handleTextChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+const ProductForm = () => {
+    const { id } = useParams(); 
+    const isEditMode = !!id;
+    const navigate = useNavigate();
+    const { token } = useAuth();
 
-  const handleFileChange = (e) => {
-    setImages(e.target.files);
-  };
+    const [formData, setFormData] = useState({
+        name: '',
+        price: '',
+        description: '',
+        brand: 'GodSpeaks',
+        category: 'Apparel',
+        color: '#000000', 
+        countInStock: 100,
+        stockStatus: 'in-stock',
+        preOrderReleaseDate: ''
+    });
 
-  const handleSizeToggle = (size) => {
-    if (selectedSizes.includes(size)) {
-      setSelectedSizes(selectedSizes.filter(s => s !== size));
-    } else {
-      setSelectedSizes([...selectedSizes, size]);
-    }
-  };
+    const [selectedSizes, setSelectedSizes] = useState(
+        SIZES.map(s => ({ size: s, available: true }))
+    );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(null);
-    setSuccess(null);
+    const [availableColors, setAvailableColors] = useState([]);
+    const [newColorHex, setNewColorHex] = useState('#000000');
+    const [newColorName, setNewColorName] = useState('');
 
-    const data = new FormData();
-    data.append('name', formData.name);
-    data.append('description', formData.description);
-    data.append('price', formData.price);
-    data.append('color', formData.color); // Saves the unlimited color selection
-    data.append('sizes', selectedSizes.join(','));
+    const [images, setImages] = useState([]); 
+    const [existingImages, setExistingImages] = useState([]); 
+    const [uploading, setUploading] = useState(false);
+    const [error, setError] = useState(null);
 
-    if (images) {
-      for (let i = 0; i < images.length; i++) {
-        data.append('images', images[i]);
-      }
-    }
+    useEffect(() => {
+        if (isEditMode) {
+            const fetchProduct = async () => {
+                try {
+                    // UPDATED: Dynamic URL
+                    const { data } = await axios.get(`${API_BASE_URL}/api/products/${id}`);
+                    setFormData({
+                        name: data.name,
+                        price: data.price,
+                        description: data.description,
+                        brand: data.brand,
+                        category: data.category,
+                        color: data.color,
+                        countInStock: data.countInStock,
+                        stockStatus: data.stockStatus || 'in-stock',
+                        preOrderReleaseDate: data.preOrderReleaseDate ? data.preOrderReleaseDate.substring(0, 10) : ''
+                    });
+                    setExistingImages(data.images);
+                    
+                    if (data.sizes && data.sizes.length > 0) {
+                         const mergedSizes = SIZES.map(s => {
+                             const found = data.sizes.find(ds => (typeof ds === 'object' ? ds.size : ds) === s);
+                             return {
+                                 size: s,
+                                 available: found ? (found.available !== false) : true 
+                             };
+                         });
+                         setSelectedSizes(mergedSizes);
+                    }
 
-    try {
-      const newProduct = await createProductApi(data);
-      setSuccess(`Product "${newProduct.name}" created successfully!`);
-      if (onProductCreated) onProductCreated(newProduct);
-    } catch (err) {
-      setError(err.message || 'Failed to create product.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+                    if (data.availableColors) {
+                        setAvailableColors(data.availableColors);
+                    }
 
-  return (
-    <Form onSubmit={handleSubmit} className="p-4 bg-white rounded shadow-sm border">
-      <h4 className="mb-4 fw-bold">Add New Product</h4>
-      
-      <Form.Group className="mb-3">
-        <Form.Label className="fw-bold">Product Name</Form.Label>
-        <Form.Control type="text" name="name" value={formData.name} onChange={handleTextChange} required />
-      </Form.Group>
+                } catch (err) {
+                    setError("Failed to fetch product data.");
+                }
+            };
+            fetchProduct();
+        }
+    }, [id, isEditMode]);
 
-      <Row className="mb-3">
-        <Form.Group as={Col} md="6">
-          <Form.Label className="fw-bold">Price (₹)</Form.Label>
-          <Form.Control type="number" name="price" value={formData.price} onChange={handleTextChange} required />
-        </Form.Group>
-        
-        {/* --- UNLIMITED COLOR PICKER FOR ADMIN --- */}
-        <Form.Group as={Col} md="6">
-          <Form.Label className="fw-bold">Fabric Color (Unlimited)</Form.Label>
-          <div className="d-flex gap-2">
-             <Form.Control
-                type="color"
-                name="color"
-                value={formData.color}
-                onChange={handleTextChange}
-                style={{ width: '60px', height: '38px', padding: '2px', cursor: 'pointer' }}
-              />
-              <Form.Control
-                type="text"
-                name="color"
-                value={formData.color}
-                onChange={handleTextChange}
-                placeholder="#hex or color name"
-                required
-              />
-          </div>
-          <Form.Text className="text-muted">Pick any color to match your fabric inventory.</Form.Text>
-        </Form.Group>
-      </Row>
+    const handleInputChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
 
-      <Form.Group className="mb-3">
-        <Form.Label className="fw-bold">Available Sizes</Form.Label>
-        <div className="d-flex gap-3 flex-wrap">
-          {ALL_SIZES.map(size => (
-            <Form.Check 
-              key={size} 
-              type="checkbox" 
-              label={size} 
-              checked={selectedSizes.includes(size)} 
-              onChange={() => handleSizeToggle(size)} 
-            />
-          ))}
-        </div>
-      </Form.Group>
+    const handleSizeChange = (sizeName) => {
+        setSelectedSizes(prev => prev.map(s => 
+            s.size === sizeName ? { ...s, available: !s.available } : s
+        ));
+    };
 
-      <Form.Group className="mb-4">
-        <Form.Label className="fw-bold">Upload Images</Form.Label>
-        <Form.Control type="file" multiple onChange={handleFileChange} accept="image/*" />
-      </Form.Group>
+    const handleFileChange = (e) => {
+        setImages([...e.target.files]);
+    };
 
-      {error && <Alert variant="danger">{error}</Alert>}
-      {success && <Alert variant="success">{success}</Alert>}
+    const handleAddColor = () => {
+        if (!newColorName) return alert("Please enter a color name");
+        const newColor = { name: newColorName, hex: newColorHex };
+        setAvailableColors([...availableColors, newColor]);
+        setNewColorName('');
+    };
 
-      <Button type="submit" variant="dark" className="w-100 fw-bold py-2" disabled={isLoading}>
-        {isLoading ? <Spinner animation="border" size="sm" /> : 'Create Product'}
-      </Button>
-    </Form>
-  );
+    const handleRemoveColor = (index) => {
+        const updated = [...availableColors];
+        updated.splice(index, 1);
+        setAvailableColors(updated);
+    };
+
+    const submitHandler = async (e) => {
+        e.preventDefault();
+        setUploading(true);
+        setError(null);
+
+        const data = new FormData();
+        data.append('name', formData.name);
+        data.append('price', formData.price);
+        data.append('description', formData.description);
+        data.append('brand', formData.brand);
+        data.append('category', formData.category);
+        data.append('color', formData.color); 
+        data.append('countInStock', formData.countInStock);
+        data.append('stockStatus', formData.stockStatus);
+        data.append('preOrderReleaseDate', formData.preOrderReleaseDate);
+
+        data.append('sizes', JSON.stringify(selectedSizes));
+        data.append('availableColors', JSON.stringify(availableColors));
+
+        for (let file of images) {
+            data.append('images', file);
+        }
+
+        const config = {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                Authorization: `Bearer ${token}`
+            }
+        };
+
+        try {
+            // UPDATED: Dynamic URL logic
+            if (isEditMode) {
+                await axios.put(`${API_BASE_URL}/api/products/${id}`, data, config);
+            } else {
+                await axios.post(`${API_BASE_URL}/api/products`, data, config);
+            }
+            navigate('/admin/products');
+        } catch (err) {
+            console.error(err);
+            setError(err.response?.data?.message || "Upload failed.");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    return (
+        <Container>
+            <h2 className="my-4 fw-bold">{isEditMode ? 'Edit Product' : 'Create Product'}</h2>
+            {error && <div className="alert alert-danger">{error}</div>}
+            
+            <Form onSubmit={submitHandler} className="p-4 border rounded shadow-sm bg-white">
+                
+                <Row>
+                    <Col md={6}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Product Name</Form.Label>
+                            <Form.Control type="text" name="name" value={formData.name} onChange={handleInputChange} required />
+                        </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Price (₹)</Form.Label>
+                            <Form.Control type="number" name="price" value={formData.price} onChange={handleInputChange} required />
+                        </Form.Group>
+                    </Col>
+                </Row>
+
+                <Form.Group className="mb-3">
+                    <Form.Label>Description</Form.Label>
+                    <Form.Control as="textarea" rows={3} name="description" value={formData.description} onChange={handleInputChange} />
+                </Form.Group>
+
+                <h5 className="mt-4 mb-3 border-bottom pb-2">Color Options</h5>
+                <Row className="mb-3 align-items-end">
+                    <Col md={4}>
+                         <Form.Label className="small fw-bold">Primary Display Color</Form.Label>
+                         <div className="d-flex align-items-center gap-2">
+                            <Form.Control 
+                                type="color" 
+                                name="color" 
+                                value={formData.color} 
+                                onChange={handleInputChange} 
+                                title="Choose Primary Color"
+                                style={{ width: '50px', padding: 0 }}
+                            />
+                            <Form.Text className="text-muted">Shown on Shop cards</Form.Text>
+                         </div>
+                    </Col>
+                    
+                    <Col md={8}>
+                        <Form.Label className="small fw-bold">Add Color Variants</Form.Label>
+                        <div className="d-flex gap-2 mb-2">
+                             <Form.Control 
+                                type="text" 
+                                placeholder="Color Name (e.g. Navy Blue)" 
+                                value={newColorName}
+                                onChange={(e) => setNewColorName(e.target.value)}
+                             />
+                             <Form.Control 
+                                type="color" 
+                                value={newColorHex} 
+                                onChange={(e) => setNewColorHex(e.target.value)}
+                                style={{ width: '50px', padding: 0 }}
+                             />
+                             <Button variant="outline-primary" onClick={handleAddColor}>Add</Button>
+                        </div>
+                        <div className="d-flex flex-wrap gap-2 mt-2">
+                            {availableColors.map((c, idx) => (
+                                <Badge key={idx} bg="light" text="dark" className="border d-flex align-items-center gap-2 p-2">
+                                    <span style={{ width: 15, height: 15, backgroundColor: c.hex, borderRadius: '50%', border: '1px solid #ccc' }}></span>
+                                    {c.name}
+                                    <span className="text-danger cursor-pointer fw-bold" onClick={() => handleRemoveColor(idx)}>&times;</span>
+                                </Badge>
+                            ))}
+                        </div>
+                    </Col>
+                </Row>
+
+                <h5 className="mt-4 mb-3 border-bottom pb-2">Inventory</h5>
+                <Form.Group className="mb-3">
+                    <Form.Label>Available Sizes</Form.Label>
+                    <div className="d-flex flex-wrap gap-3">
+                        {selectedSizes.map((item) => (
+                            <Form.Check 
+                                key={item.size}
+                                type="checkbox"
+                                label={item.size}
+                                checked={item.available}
+                                onChange={() => handleSizeChange(item.size)}
+                            />
+                        ))}
+                    </div>
+                </Form.Group>
+
+                <Row>
+                     <Col md={4}>
+                        <Form.Group className="mb-3">
+                            <Form.Label>Stock Status</Form.Label>
+                            <Form.Select name="stockStatus" value={formData.stockStatus} onChange={handleInputChange}>
+                                <option value="in-stock">In Stock</option>
+                                <option value="out-of-stock">Out of Stock</option>
+                                <option value="pre-order">Pre-Order</option>
+                            </Form.Select>
+                        </Form.Group>
+                     </Col>
+                     {formData.stockStatus === 'pre-order' && (
+                         <Col md={4}>
+                             <Form.Group className="mb-3">
+                                 <Form.Label>Release Date</Form.Label>
+                                 <Form.Control type="date" name="preOrderReleaseDate" value={formData.preOrderReleaseDate} onChange={handleInputChange} />
+                             </Form.Group>
+                         </Col>
+                     )}
+                </Row>
+
+                <Form.Group className="mb-4">
+                    <Form.Label>Upload Images</Form.Label>
+                    <Form.Control type="file" multiple onChange={handleFileChange} />
+                    <div className="d-flex flex-wrap gap-2 mt-2">
+                        {existingImages.map((img, idx) => (
+                             <Image key={idx} src={img} thumbnail style={{ width: 80, height: 80, objectFit: 'cover' }} />
+                        ))}
+                    </div>
+                </Form.Group>
+
+                <Button variant="dark" type="submit" size="lg" disabled={uploading} className="w-100 fw-bold">
+                    {uploading ? 'Saving Product...' : (isEditMode ? 'Update Product' : 'Create Product')}
+                </Button>
+            </Form>
+        </Container>
+    );
 };
 
 export default ProductForm;

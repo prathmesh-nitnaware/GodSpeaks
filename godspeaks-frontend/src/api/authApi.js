@@ -1,56 +1,71 @@
-/**
- * GodSpeaks Authentication API
- * Configured for Production (Render) and Local Development
- */
+import axios from 'axios';
 
-// --- DYNAMIC API URL ---
-// Netlify will use REACT_APP_API_URL if set; otherwise, it defaults to localhost
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com'; 
-const API_URL = `${API_BASE_URL}/api/auth`; //
+// --- CONFIGURATION ---
+// If we are on localhost, use localhost:5000. Otherwise use the live URL.
+const isLocal = window.location.hostname === 'localhost';
+const API_BASE_URL = isLocal ? 'http://localhost:5000' : (process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com');
+
+const AUTH_URL = `${API_BASE_URL}/api/auth`;
+
+// --- AUTH API FUNCTIONS ---
 
 /**
- * Logs in the user (Admin or Customer).
+ * Login User (Admin or Customer)
  */
 export const loginApi = async (email, password) => {
   try {
-    const response = await fetch(`${API_URL}/login`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "Login failed");
+    const { data } = await axios.post(`${AUTH_URL}/login`, { email, password });
     return data;
   } catch (error) {
-    console.error("Login API Error:", error); // Added for easier debugging
-    throw error;
+    console.error("Login API Error:", error);
+    throw new Error(error.response?.data?.message || 'Login failed');
   }
 };
 
 /**
- * Registers a new Customer.
+ * Register User (Customer)
  */
-export const registerApi = async (email, password) => {
+export const registerApi = async (userData) => {
   try {
-    const response = await fetch(`${API_URL}/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      const errorMessage = data.errors
-        ? data.errors.map((e) => e.msg).join(", ")
-        : data.message || "Registration failed";
-      throw new Error(errorMessage);
-    }
-
+    const { data } = await axios.post(`${AUTH_URL}/register`, userData);
     return data;
   } catch (error) {
-    console.error("Registration API Error:", error);
-    throw error;
+    throw new Error(error.response?.data?.message || 'Registration failed');
+  }
+};
+
+/**
+ * Forgot Password
+ */
+export const forgotPasswordApi = async (email) => {
+  try {
+    const { data } = await axios.post(`${AUTH_URL}/forgot-password`, { email });
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Request failed');
+  }
+};
+
+/**
+ * Reset Password
+ */
+export const resetPasswordApi = async (token, password) => {
+  try {
+    const { data } = await axios.post(`${AUTH_URL}/reset-password/${token}`, { password });
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Reset failed');
+  }
+};
+
+/**
+ * Google Login
+ */
+export const googleLoginApi = async (idToken) => {
+  try {
+    const { data } = await axios.post(`${AUTH_URL}/google`, { idToken });
+    return data;
+  } catch (error) {
+    throw new Error(error.response?.data?.message || 'Google login failed');
   }
 };

@@ -1,5 +1,7 @@
-// --- CONFIGURATION ---
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com';
+// --- CONFIGURATION ---// If we are on localhost, use localhost:5000. Otherwise use the live URL.
+const isLocal = window.location.hostname === 'localhost';
+const API_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://godspeaks.onrender.com';
+
 const PRODUCTS_URL = `${API_BASE_URL}/api/products`;
 
 // --- HELPER: Unified Response Handler ---

@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit'); // NEW: Security logic
+const rateLimit = require('express-rate-limit');
 const connectDB = require('./config/db');
 const cron = require('node-cron');
 const Cart = require('./models/Cart');
@@ -36,7 +36,7 @@ const generalLimiter = rateLimit({
 // Stricter Limiter for Auth & Payments: 10 attempts per hour
 const strictLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, 
-    max: 10, 
+    max: 100, 
     message: { message: 'Too many attempts detected. Please try again in an hour.' },
 });
 
@@ -48,11 +48,26 @@ app.use(helmet({
 // Apply general limiter to all routes
 app.use('/api/', generalLimiter);
 
-// --- 3. HARDENED CORS ---
-const clientUrl = process.env.CLIENT_URL || 'http://localhost:3000';
+// --- 3. HARDENED CORS (UPDATED) ---
+// We allow both Localhost (for testing) and the Live URL (for production)
+const allowedOrigins = [
+    'http://localhost:3000', 
+    'https://godspeaks.netlify.app',
+    process.env.CLIENT_URL // Fallback if set in .env
+];
+
 app.use(cors({
-    // Only allow your specific frontend URL in production to prevent CSRF
-    origin: process.env.NODE_ENV === 'production' ? clientUrl : 'http://localhost:3000', 
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        if (allowedOrigins.indexOf(origin) !== -1 || !process.env.NODE_ENV) {
+            callback(null, true);
+        } else {
+            console.log("Blocked by CORS:", origin); 
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
@@ -102,7 +117,7 @@ cron.schedule('0 * * * *', async () => {
                         <h2>Hi ${cart.user.name || 'Friend'},</h2>
                         <p>We noticed you left some inspired designs in your cart.</p>
                         <div style="text-align: center; margin: 40px 0;">
-                            <a href="${clientUrl}/cart" style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Return to My Cart</a>
+                            <a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/cart" style="background: #000; color: #fff; padding: 15px 30px; text-decoration: none; border-radius: 5px;">Return to My Cart</a>
                         </div>
                         <p>Blessings,<br/>The GodSpeaks Team</p>
                     </div>`;

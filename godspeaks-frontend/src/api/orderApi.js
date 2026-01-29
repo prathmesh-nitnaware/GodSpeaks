@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 // --- CONFIGURATION ---
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com';
+const isLocal = window.location.hostname === 'localhost';
+const API_BASE_URL = isLocal ? 'http://localhost:5000' : (process.env.REACT_APP_API_URL || 'https://godspeaks.onrender.com');
+
 const API_URL = `${API_BASE_URL}/api/orders`;
 
 /**
