@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { loginApi, registerApi } from '../api/authApi'; // Import registerApi
+import { loginApi, registerApi } from '../api/authApi';
 
 const ACTIONS = {
   AUTH_START: 'AUTH_START',
@@ -15,16 +15,26 @@ const authReducer = (state, action) => {
   switch (action.type) {
     case ACTIONS.AUTH_START:
       return { ...state, isLoading: true, error: null };
+
     case ACTIONS.AUTH_SUCCESS:
       localStorage.setItem('godspeaks_admin', JSON.stringify(action.payload));
-      return { ...state, isLoading: false, adminInfo: action.payload, error: null };
+      return {
+        ...state,
+        isLoading: false,
+        adminInfo: action.payload,
+        error: null,
+      };
+
     case ACTIONS.AUTH_FAILURE:
       return { ...state, isLoading: false, error: action.payload };
+
     case ACTIONS.LOGOUT:
       localStorage.removeItem('godspeaks_admin');
       return { ...state, adminInfo: null, error: null };
+
     case ACTIONS.LOAD_USER:
       return { ...state, adminInfo: action.payload, isLoading: false };
+
     default:
       return state;
   }
@@ -33,7 +43,7 @@ const authReducer = (state, action) => {
 export const AuthProvider = ({ children }) => {
   const initialState = {
     adminInfo: null,
-    isLoading: false, 
+    isLoading: false,
     error: null,
   };
 
@@ -42,28 +52,17 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const savedAdmin = localStorage.getItem('godspeaks_admin');
     if (savedAdmin) {
-      dispatch({ type: ACTIONS.LOAD_USER, payload: JSON.parse(savedAdmin) });
+      dispatch({
+        type: ACTIONS.LOAD_USER,
+        payload: JSON.parse(savedAdmin),
+      });
     }
   }, []);
 
-  // Login Action
   const login = async (email, password) => {
     dispatch({ type: ACTIONS.AUTH_START });
     try {
-      const data = await loginApi(email, password); 
-      dispatch({ type: ACTIONS.AUTH_SUCCESS, payload: data });
-      return true;
-    } catch (error) {
-      dispatch({ type: ACTIONS.AUTH_FAILURE, payload: error.message });
-      return false;
-    }
-  };
-
-  // Register Action (NEW)
-  const register = async (email, password) => {
-    dispatch({ type: ACTIONS.AUTH_START });
-    try {
-      const data = await registerApi(email, password);
+      const data = await loginApi(email, password);
       dispatch({ type: ACTIONS.AUTH_SUCCESS, payload: data });
       return true;
     } catch (error) {
@@ -76,7 +75,12 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: ACTIONS.LOGOUT });
   };
 
-  const value = { ...state, login, register, logout };
+  const value = {
+    ...state,
+    token: state.adminInfo?.token, // ✅ ADD THIS
+    login,
+    logout,
+  };
 
   return (
     <AuthContext.Provider value={value}>
@@ -87,8 +91,8 @@ export const AuthProvider = ({ children }) => {
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
 };
