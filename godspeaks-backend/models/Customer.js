@@ -1,44 +1,51 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-const CustomerSchema = new mongoose.Schema({
+const customerSchema = mongoose.Schema(
+  {
     name: {
-        type: String,
+      type: String,
+      required: true,
     },
     email: {
-        type: String,
-        required: true,
-        unique: true,
+      type: String,
+      required: true,
+      unique: true,
     },
     password: {
-        type: String,
-        required: true,
+      type: String,
+      required: true,
     },
     role: {
-        type: String,
-        default: 'customer',
+      type: String,
+      default: 'customer',
     },
-    // --- NEW: Password Reset Fields ---
+
+    // 🔐 Password Reset
     resetPasswordToken: String,
     resetPasswordExpire: Date,
-}, {
-    timestamps: true
-});
 
-// --- Encrypt password before saving ---
-CustomerSchema.pre('save', async function(next) {
-    if (!this.isModified('password')) {
-        return next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
+    // 📧 Email Verification
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationToken: String,
+  },
+  { timestamps: true }
+);
+
+// Hash password
+customerSchema.pre('save', async function (next) {
+  if (!this.isModified('password')) {
     next();
+  }
+  this.password = await bcrypt.hash(this.password, 10);
 });
 
-// --- Method to compare password ---
-CustomerSchema.methods.matchPassword = async function(enteredPassword) {
-    return await bcrypt.compare(enteredPassword, this.password);
+// Match password
+customerSchema.methods.matchPassword = async function (enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
 };
 
-const Customer = mongoose.model('Customer', CustomerSchema);
-module.exports = Customer;
+module.exports = mongoose.model('Customer', customerSchema);

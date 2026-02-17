@@ -1,16 +1,26 @@
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
-const Customer = require('../models/Customer'); 
+const Customer = require('../models/Customer');
 
+// ===============================
+// PROTECT ROUTES (JWT REQUIRED)
+// ===============================
 const protect = async (req, res, next) => {
     let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+
+    if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer')
+    ) {
         try {
             token = req.headers.authorization.split(' ')[1];
+
             const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-            // 1. Search for the ID in both collections
+            // Try Admin first
             let user = await Admin.findById(decoded.id).select('-password');
+
+            // Else Customer
             if (!user) {
                 user = await Customer.findById(decoded.id).select('-password');
             }
@@ -19,27 +29,32 @@ const protect = async (req, res, next) => {
                 return res.status(401).json({ message: 'User not found' });
             }
 
-            req.user = user; // This attaches the user object to the request
+            req.user = user;
             next();
         } catch (error) {
-            return res.status(401).json({ message: 'Token failed' });
+            return res.status(401).json({ message: 'Token invalid' });
         }
     } else {
-        res.status(401).json({ message: 'No token found' });
+        return res.status(401).json({ message: 'No token provided' });
     }
 };
 
+// ===============================
+// ADMIN / SUPERADMIN ONLY
+// ===============================
 const admin = (req, res, next) => {
-  if (req.user && (
-      req.user.role === 'admin' || 
-      req.user.role === 'superadmin' || // ADDED: Matches your specific DB role
-      req.user.isAdmin === true
-  )) {
-    next();
-  } else {
-    // This is where the 401 error was being generated
-    res.status(401).json({ message: 'Not authorized as an admin or superadmin' });
-  }
+    if (
+        req.user &&
+        (req.user.role === 'superadmin' ||
+            req.user.role === 'admin' ||
+            req.user.isAdmin === true)
+    ) {
+        next();
+    } else {
+        return res
+            .status(403)
+            .json({ message: 'Admin or Superadmin access required' });
+    }
 };
 
 module.exports = { protect, admin };

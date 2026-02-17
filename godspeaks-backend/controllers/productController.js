@@ -1,235 +1,220 @@
 const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
 
-// @desc    Fetch all products
-// @route   GET /api/products
-// @access  Public
+// ===============================
+// GET ALL PRODUCTS
+// ===============================
 const getProducts = asyncHandler(async (req, res) => {
-    const pageSize = 12;
-    const page = Number(req.query.pageNumber) || 1;
-    const keyword = req.query.keyword ? {
-        $or: [
-            { name: { $regex: req.query.keyword, $options: 'i' } },
-            { description: { $regex: req.query.keyword, $options: 'i' } }
-        ]
-    } : {};
+  const pageSize = 12;
+  const page = Number(req.query.pageNumber) || 1;
 
-    if (req.query.category) {
-        keyword.category = req.query.category;
-    }
+  const query = {};
 
-    const count = await Product.countDocuments({ ...keyword });
-    const products = await Product.find({ ...keyword })
-        .limit(pageSize)
-        .skip(pageSize * (page - 1))
-        .sort({ createdAt: -1 });
+  if (req.query.keyword) {
+    query.$or = [
+      { name: { $regex: req.query.keyword, $options: 'i' } },
+      { description: { $regex: req.query.keyword, $options: 'i' } },
+    ];
+  }
 
-    res.json({ products, page, pages: Math.ceil(count / pageSize) });
+  if (req.query.category) {
+    query.category = req.query.category;
+  }
+
+  const count = await Product.countDocuments(query);
+
+  const products = await Product.find(query)
+    .limit(pageSize)
+    .skip(pageSize * (page - 1))
+    .sort({ createdAt: -1 });
+
+  res.json({ products, page, pages: Math.ceil(count / pageSize) });
 });
 
-// @desc    Fetch single product
-// @route   GET /api/products/:id
-// @access  Public
+// ===============================
+// GET SINGLE PRODUCT
+// ===============================
 const getProductById = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-        res.json(product);
-    } else {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  res.json(product);
 });
 
-// @desc    Fetch related products
-// @route   GET /api/products/:id/related
-// @access  Public
+// ===============================
+// GET RELATED PRODUCTS
+// ===============================
 const getRelatedProducts = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  const product = await Product.findById(req.params.id);
 
-    const related = await Product.find({
-        _id: { $ne: product._id },
-        $or: [
-            { category: product.category }, // Prioritize category
-            { color: product.color }
-        ]
-    }).limit(4);
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
 
-    res.json(related);
+  const related = await Product.find({
+    _id: { $ne: product._id },
+    category: product.category,
+  }).limit(4);
+
+  res.json(related);
 });
 
-// @desc    Delete a product
-// @route   DELETE /api/products/:id
-// @access  Private/Admin
+// ===============================
+// DELETE PRODUCT (ADMIN)
+// ===============================
 const deleteProduct = asyncHandler(async (req, res) => {
-    const product = await Product.findById(req.params.id);
-    if (product) {
-        await product.deleteOne();
-        res.json({ message: 'Product removed' });
-    } else {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  const product = await Product.findById(req.params.id);
+
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  await product.deleteOne();
+  res.json({ message: 'Product removed' });
 });
 
-// @desc    Create a product
-// @route   POST /api/products
-// @access  Private/Admin
+// ===============================
+// CREATE PRODUCT (ADMIN, POD)
+// ===============================
 const createProduct = asyncHandler(async (req, res) => {
-    const { 
-        name, price, description, brand, category, countInStock, 
-        color, sizes, stockStatus, preOrderReleaseDate, availableColors 
-    } = req.body;
+  const {
+    name,
+    price,
+    description,
+    category,
+    color,
+    sizes,
+    availableColors,
+    images,
+    isAvailable,
+  } = req.body;
 
-    const images = req.files ? req.files.map(file => file.path || file.secure_url) : [];
+  if (!images || images.length === 0) {
+    res.status(400);
+    throw new Error('At least one image is required');
+  }
 
-    let parsedColors = [];
-    if (availableColors) {
-        try {
-            parsedColors = JSON.parse(availableColors);
-        } catch (e) {
-            console.error("Error parsing colors:", e);
-        }
-    }
+  const product = new Product({
+    user: req.user._id,
+    name,
+    price,
+    description,
+    category,
+    color,
+    sizes,            // ✅ already array
+    availableColors,  // ✅ already array
+    images,           // ✅ array of Cloudinary URLs
+    isAvailable,
+  });
 
-    const product = new Product({
-        name,
-        price,
-        user: req.user._id,
-        images,
-        brand,
-        category,
-        countInStock,
-        numReviews: 0,
-        description,
-        color, 
-        availableColors: parsedColors,
-        sizes: sizes ? JSON.parse(sizes) : [],
-        stockStatus,
-        preOrderReleaseDate
-    });
-
-    const createdProduct = await product.save();
-    res.status(201).json(createdProduct);
+  const createdProduct = await product.save();
+  res.status(201).json(createdProduct);
 });
 
-// @desc    Update a product
-// @route   PUT /api/products/:id
-// @access  Private/Admin
+// ===============================
+// UPDATE PRODUCT (ADMIN, POD)
+// ===============================
 const updateProduct = asyncHandler(async (req, res) => {
-    const { 
-        name, price, description, brand, category, countInStock, 
-        color, sizes, stockStatus, preOrderReleaseDate, availableColors 
-    } = req.body;
+  const product = await Product.findById(req.params.id);
 
-    const product = await Product.findById(req.params.id);
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
 
-    if (product) {
-        product.name = name || product.name;
-        product.price = price || product.price;
-        product.description = description || product.description;
-        product.brand = brand || product.brand;
-        product.category = category || product.category;
-        product.countInStock = countInStock || product.countInStock;
-        product.color = color || product.color;
-        product.stockStatus = stockStatus || product.stockStatus;
-        product.preOrderReleaseDate = preOrderReleaseDate || product.preOrderReleaseDate;
+  const {
+    name,
+    price,
+    description,
+    category,
+    color,
+    sizes,
+    availableColors,
+    images,
+    isAvailable,
+  } = req.body;
 
-        if (sizes) {
-            try {
-                 product.sizes = JSON.parse(sizes);
-            } catch (e) {
-                 // handle error or keep existing
-            }
-        }
+  product.name = name ?? product.name;
+  product.price = price ?? product.price;
+  product.description = description ?? product.description;
+  product.category = category ?? product.category;
+  product.color = color ?? product.color;
+  product.sizes = sizes ?? product.sizes;
+  product.availableColors = availableColors ?? product.availableColors;
+  product.images = images ?? product.images;
+  product.isAvailable = isAvailable ?? product.isAvailable;
 
-        if (availableColors) {
-            try {
-                product.availableColors = JSON.parse(availableColors);
-            } catch (e) {
-                console.error("Error parsing colors update:", e);
-            }
-        }
-
-        if (req.files && req.files.length > 0) {
-             const newImages = req.files.map(file => file.path || file.secure_url);
-             product.images = [...product.images, ...newImages];
-        }
-
-        const updatedProduct = await product.save();
-        res.json(updatedProduct);
-    } else {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  const updatedProduct = await product.save();
+  res.json(updatedProduct);
 });
 
-// @desc    Create new review
-// @route   POST /api/products/:id/reviews
-// @access  Private
+// ===============================
+// CREATE REVIEW
+// ===============================
 const createProductReview = asyncHandler(async (req, res) => {
-    const { rating, comment, name } = req.body;
+  const { rating, comment, name } = req.body;
+  const product = await Product.findById(req.params.id);
 
-    const product = await Product.findById(req.params.id);
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
 
-    if (product) {
-        const alreadyReviewed = product.reviews.find(
-            (r) => r.user.toString() === req.user._id.toString()
-        );
+  const alreadyReviewed = product.reviews.find(
+    r => r.user.toString() === req.user._id.toString()
+  );
 
-        if (alreadyReviewed) {
-            res.status(400);
-            throw new Error('Product already reviewed');
-        }
+  if (alreadyReviewed) {
+    res.status(400);
+    throw new Error('Product already reviewed');
+  }
 
-        const review = {
-            name: name || req.user.name,
-            rating: Number(rating),
-            comment,
-            user: req.user._id,
-        };
+  const review = {
+    name: name || req.user.name,
+    rating: Number(rating),
+    comment,
+    user: req.user._id,
+  };
 
-        product.reviews.push(review);
-        product.numReviews = product.reviews.length;
-        product.rating =
-            product.reviews.reduce((acc, item) => item.rating + acc, 0) /
-            product.reviews.length;
+  product.reviews.push(review);
+  product.numReviews = product.reviews.length;
+  product.rating =
+    product.reviews.reduce((acc, item) => item.rating + acc, 0) /
+    product.reviews.length;
 
-        await product.save();
-        res.status(201).json({ message: 'Review added' });
-    } else {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  await product.save();
+  res.status(201).json({ message: 'Review added' });
 });
 
-// @desc    Join Waitlist (MISSING FUNCTION ADDED)
-// @route   POST /api/products/:id/waitlist
-// @access  Public
+// ===============================
+// WAITLIST (OPTIONAL)
+// ===============================
 const joinWaitlist = asyncHandler(async (req, res) => {
-    const { email } = req.body;
-    const product = await Product.findById(req.params.id);
+  const product = await Product.findById(req.params.id);
 
-    if (product) {
-        // In a future update, you can save this email to a database collection.
-        // For now, we return success so the frontend "Notify Me" button works.
-        res.status(200).json({ message: `You have joined the waitlist for ${product.name}` });
-    } else {
-        res.status(404);
-        throw new Error('Product not found');
-    }
+  if (!product) {
+    res.status(404);
+    throw new Error('Product not found');
+  }
+
+  res.status(200).json({
+    message: `You have joined the waitlist for ${product.name}`,
+  });
 });
 
 module.exports = {
-    getProducts,
-    getProductById,
-    deleteProduct,
-    createProduct,
-    updateProduct,
-    createProductReview,
-    getRelatedProducts,
-    joinWaitlist, // <--- EXPORTED HERE
+  getProducts,
+  getProductById,
+  getRelatedProducts,
+  deleteProduct,
+  createProduct,
+  updateProduct,
+  createProductReview,
+  joinWaitlist,
 };
