@@ -1,0 +1,11 @@
+{
+  "short_name": "GodSpeaks",
+  "name": "GodSpeaks. - Faith-Based Apparel",
+  "description": "Premium faith-based apparel, printed just for you.",
+  "icons": [], 
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "orientation": "portrait"
+}
